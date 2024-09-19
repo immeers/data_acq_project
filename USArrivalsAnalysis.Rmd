@@ -1,0 +1,20 @@
+---
+title: "A Predictive Analysis of Time Spent in Airport Arrivals in US"
+author: "Imogen Meers, Sarah Deussing"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Topic
+We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. 
+
+## Significance and Motivatio
+This is significant as oftentimes, flights take longer than expected or airports have unexpected delays. We want to be able to minimize wasted time in the airport and understand the likelihood of making a connecting flight based on historical flight data from a number of different airports. 
+
+When flying internationally (internationally into the US), this information can be very useful as it would help travellers decide which connections to choose in order to minimize wasted time waiting around in the aiport but make sure you have time to make your flight. It also helps travellers decide what time to book taxis or hire cars, or decide which airlines and airports to avoid at different times because of unreliability.
+
+
