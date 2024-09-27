@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ## Topic
-We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month. We predict roughly . To do so, we will use:
+We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month in order to do so. The sources we will use:
 
 1. A Form API of wait times for customs from international flights arriving into Chicago O'Hare, one of the major US airports.
    - https://awt.cbp.gov/
@@ -23,7 +23,7 @@ We want to understand airport arrival wait patterns by predicting future flight 
     Endpoint: GET /status - Get flight status by specifying arrival date range and arrivals airport
 
 
-Our motivation for pursuing this problem is our experiences with international travel. We understand the stress of making connections and wasting time walking around new airports during travel.
+Our motivation for pursuing this problem is our experiences with international travel. We understand the stress of making connections and wasting time walking around new airports during travel. We chose Chicago O'Hare as it is our local internetional airport and one of the major airports within the US.
 
 ## Significance
 This research problem is significant as oftentimes, flights take longer than expected or airports have unexpected delays. We want to be able to minimize wasted time in the airport and understand the likelihood of making a connecting flight based on historical flight data from a number of different airports. 
@@ -31,5 +31,49 @@ This research problem is significant as oftentimes, flights take longer than exp
 When flying internationally into the United States, this information can be very useful to help plan one's travel. Based on their predicted total flight time, travelers can select connecting flights that minimize wasted time waiting around in the airport and allow for adequate times between flights. This prediction information will also help travelers decide what time to book taxis or hire cars, or decide which airlines and airports to avoid at different times because of unreliability.
 
 
+## Data Acquisition Process
+### Historical flight arrivals data 
+We obtained free API keys for the OAG info API and identified the GET status endpoint as the most suitable for our project. This endpoint provides data on:
 
+  - Core Schedule information e.g. carrier, flight number, departure/arrival times, flight date, departure/destination airports
+
+  - Estimate and actual times for gates
+
+  - Estimate and actual times for runway
+
+  - Flight delays, cancelations, diversions and recovery
+
+  - Aircraft type and tail number
+
+  - Departure/arrival gates and terminals
+
+  - Check-in desk and baggage carousel
+
+  - Codeshare
+
+These will all be useful features to predict the future flight arrival information.
+
+Originally, we wanted to get at least a year's worth of data but when we calculated the number of flights per day (up to 1000) and the page limit of 100, we realized this world take a huge amount of requests far beyond the usage limit for this API. Instead we will attempt to get at least a month's worth of data (still 1000s of flights) in order to perform our analysis.
+
+Below is our R code, which includes the initial GET request and then a loop that facilitates pagnation with a next cursor.
+
+```{r Historical Flight Arrivals}
+
+```
+
+
+### Historical airport wait times
+We obtained this data using FORM request on the https://awt.cbp.gov/ website. At first, we searched the page html to find the appropriate ID for Chicago O'Hare Aiport then we specified the date range for wait time collection. This will be performed after the flight API request as this will guide how many days we need to get wait times for.
+
+Below is our R code, which submits a HTML form and returns a HTML table to clean into a data frame.
+
+```{r Airport Wait Times}
+
+```
+
+
+##Summary Statistics
+```{r}
+
+```
 
