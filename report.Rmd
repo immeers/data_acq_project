@@ -1,0 +1,21 @@
+---
+title: "Draft_Report"
+author: "Imogen Meers & Sarah Deussing"
+date: "2024-09-27"
+output: pdf_document
+---
+
+##Title of Project and Authors
+title?
+
+Imogen Meers & Sarah Deussing
+
+## Introduction
+Outline the research problems, their significance, and your motivation for pursuing them. It should explain the topic, provide background context, and prepare the reader for the rest of the report. The introduction should also show readers why the research topic is worth reading about.
+
+
+## Data Acquisition Process
+Describe the methodology used to collect the data. This should include the tools used, the sampling method, and the sample size, the target population. Present any challenges or issues you found. Be thorough. 
+
+## Data Description
+Describe the structure of the dataset that was acquired and any cleaning or preprocessing that was performed on the data to prepare it for analysis. Describe interesting data points that merit attention and some summary statistics to give a general overview of your data.
