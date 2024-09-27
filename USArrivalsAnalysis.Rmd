@@ -9,8 +9,8 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-## Topic
+## Introduction
+#### Topic
 We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month. We predict roughly . To do so, we will use:
 
 1. A Form API of wait times for customs from international flights arriving into Chicago O'Hare, one of the major US airports.
@@ -25,11 +25,28 @@ We want to understand airport arrival wait patterns by predicting future flight 
 
 Our motivation for pursuing this problem is our experiences with international travel. We understand the stress of making connections and wasting time walking around new airports during travel.
 
-## Significance
+#### Significance
 This research problem is significant as oftentimes, flights take longer than expected or airports have unexpected delays. We want to be able to minimize wasted time in the airport and understand the likelihood of making a connecting flight based on historical flight data from a number of different airports. 
 
 When flying internationally into the United States, this information can be very useful to help plan one's travel. Based on their predicted total flight time, travelers can select connecting flights that minimize wasted time waiting around in the airport and allow for adequate times between flights. This prediction information will also help travelers decide what time to book taxis or hire cars, or decide which airlines and airports to avoid at different times because of unreliability.
 
+## Data Acquisition Process
+Describe the methodology used to collect the data. This should include the tools used, the sampling method, and the sample size, the target population. Present any challenges or issues you found. Be thorough. 
+
+#### The Form API data from: https://awt.cbp.gov/.
+For this API, we are submitting 3 form elements: airportID, start date, and end date. Within each request, we added a short wait time to ensure we are not overloading the API with requests.
+
+#### The REST API data from: https://rapidapi.com/oag-oag-default/api/flight-info-api
+For this API, we had to create a free account with a limited number of requests.
+Each API request provided 100 rows per page, and we extracted the desired information from nested tables in each row of the json file. Because we only have the free version of the API, we have a limited number of requests from the API. Our solution is to save a cleaned csv file of the data from each request and merge these csv files after we have enough data.
 
 
 
+## Data Description
+Describe the structure of the dataset that was acquired and any cleaning or preprocessing that was performed on the data to prepare it for analysis. Describe interesting data points that merit attention and some summary statistics to give a general overview of your data.
+
+#### The Form API data from: https://awt.cbp.gov/.
+With this API, we get a list of wait times for the desired airport within the date range we provide. This dataset includes average and max wait times for US, Non-US citizens, and all people. 
+
+#### The REST API data from: https://rapidapi.com/oag-oag-default/api/flight-info-api
+Each request (and associated json) had 100 rows. Each row contained 17 elements: carrier, serviceSuffix, flightNumber, flightType, departure, arrival, elapsedTime, cargoTonnage, aircraftType, serviceType, segmentInfo, distance, codeshare, scheduleInstanceKey, statusKey, and statusDetails. Within departure, arrival, distance, and statusDetails were further information about the flight. Cleaning the data required finding the elements that we wanted to use in our analysis and making them into a dataframe. Most datapoints could be put directly into the dataframe without manipulation; however, the connecting flights column was created with a function that extracted the connecting flights, if they existed.

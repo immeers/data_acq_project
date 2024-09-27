@@ -31,7 +31,7 @@ parse_resp <- function(response){
   connections <- function(data) {
     conn_list <- list()
     if (data$segmentInfo$numberOfStops == 0) {
-      conn_list <- append(conn_list, 0)
+      conn_list <- append(conn_list, "None")
     }
     else {
       for (i in 1:data$segmentInfo$numberOfStops[[1]]) {
