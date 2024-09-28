@@ -25,41 +25,11 @@ parse_resp <- function(response){
   #particularly look at status details for scheduled departure/arrival (will be useful for delay)
   
   #Just run this to get inital json
-  json <- read_json('flightAPIJson.json')
-  flight_data <- data.frame()
+  json <- read_json(flightAPIJson.json)
   
-  connections <- function(data) {
-    conn_list <- list()
-    if (data$segmentInfo$numberOfStops == 0) {
-      conn_list <- append(conn_list, "None")
-    }
-    else {
-      for (i in 1:data$segmentInfo$numberOfStops[[1]]) {
-        conn_list <- append(conn_list, list(data$segmentInfo$intermediateAirports$iata[[i]]$station))
-      }
-    }
-    return (conn_list)
-  }
   
-  for (i in 1:length(json$data)) {
-    data <- json$data[[i]]
-    new_row <- data.frame(
-      deptAirport = data$departure$airport$iata,
-      arrAirport = data$arrival$airport$iata,
-      deptDay = data$departure$date$utc,
-      deptTime = data$departure$time$utc,
-      arrDay = data$arrival$date$utc,
-      arrTime = data$arrival$time$utc,
-      deptCountry = data$departure$country$code,
-      arrCountry = data$arrival$country$code,
-      flightNumber = data$flightNumber,
-      numStops  = data$segmentInfo$numberOfStops,
-      connections = connections(data)[[1]],
-      miles = data$distance$accumulatedGreatCircleMiles
-      )
-    flight_data <- rbind(flight_data, new_row)
-  }
-  write.csv(flight_data, 'request1.csv', row.names=FALSE)
+  #CLEAN AND APPEND EITHER TO DF OR CSV 
+  
   
   paging_next <- json$paging$`next`
   return(paging_next)
