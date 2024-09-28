@@ -1,6 +1,8 @@
 library(httr)
 library(jsonlite)
 
+#test
+
 url <- "https://flight-info-api.p.rapidapi.com/status"
 api_key = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e'
 api_host = 'flight-info-api.p.rapidapi.com'
