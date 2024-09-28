@@ -2,22 +2,23 @@
 title: "A Predictive Analysis of Time Spent in Airport Arrivals in US"
 author: "Imogen Meers, Sarah Deussing"
 date: "`r Sys.Date()`"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-<<<<<<< HEAD
 
 ## Topic
 We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month in order to do so. The sources we will use:
-=======
+
 ## Introduction
 #### Topic
 We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month. We predict roughly . To do so, we will use:
->>>>>>> 40afd5eab07b66cd9ce4a63b5cc479236546104f
 
 1. A Form API of wait times for customs from international flights arriving into Chicago O'Hare, one of the major US airports.
    - https://awt.cbp.gov/
@@ -180,10 +181,41 @@ We obtained this data using FORM request on the https://awt.cbp.gov/ website. At
 
 Below is our R code, which submits a HTML form and returns a HTML table to clean into a data frame.
 
-```{r Airport Wait Times}
+```{r Airport Wait Times, eval = FALSE}
+library(httr) # httr is organised around the six most common http verbs: GET(), PATCH(), POST(), HEAD(), PUT(), and DELETE().
+library(rvest) # Easily Harvest (Scrape) Web Pages
+library(tidyverse)
+library(stringr)
+library(jsonlite)
+
+
+#Found in the HTML of the website
+ord_id <- 'ORD'
+t5_id <- 'A392'
+#form request
+awt_session <- session("https://awt.cbp.gov/")
+form <- html_form(awt_session)[[1]]
+form_filled <- html_form_set(form, Id = 'ORD', FromDate = '08/01/2024', ToDate = '09/01/2024')
+answer <- session_submit(awt_session, form_filled)
+answer
+tbl <- data.frame(html_table(answer)[[1]])
+for (i in (5:20)){
+  colnames(tbl)[i] <- paste0(paste0(tbl[1, i], " "), gsub("\\s+", "_", tbl[2, i]))
+}
+
+colnames(tbl)[c(5,7)] <- c('US_Average_Wait_Time', 'Non_US_Average_Wait_Times')
+tbl <- tbl %>% select(-All.12) %>% slice(-c(1, 2))
+write.csv(tbl, 'waitTimes1.csv', row.names=FALSE)
+
+
+
 
 ```
 
+```{r Data Frame Preview1}
+wait_data <- read.csv('waitTimes1.csv')
+head(wait_data)
+```
 
 
 ## Data Description
@@ -196,7 +228,8 @@ With this API, we get a list of wait times for the desired airport within the da
 Each request (and associated json) had 100 rows. Each row contained 17 elements: carrier, serviceSuffix, flightNumber, flightType, departure, arrival, elapsedTime, cargoTonnage, aircraftType, serviceType, segmentInfo, distance, codeshare, scheduleInstanceKey, statusKey, and statusDetails. Within departure, arrival, distance, and statusDetails were further information about the flight. Cleaning the data required finding the elements that we wanted to use in our analysis and making them into a data frame. Most data points could be put directly into the data frame without manipulation; however, the connecting flights column was created with a function that extracted the connecting flights, if they existed.
 
 ##Summary Statistics for Flights
-```{r Summary Statistics, eval = FALSE}
+```{r Summary Statistics1}
+library(ggplot2)
 summary(flight_data)
 
 # Plot of most common hours
@@ -211,9 +244,22 @@ ggplot(flight_data, aes(x=arrAirport)) + geom_bar() +
 
 ##Summary Statistics for Wait Times
 ```{r Summary Statistics}
+library(gridExtra)
+library(dplyr)
+summary(wait_data)
 
-us_non_us <- ggplot(df, aes(x = date, y = sales)) +
-  geom_line(color = "blue") +
-  theme_minimal() +
-  labs(title = "Sales Over Time", x = "Date", y = "Sales")
+per_date <- wait_data %>% group_by(Date) %>% summarise(avg_us =  mean(US_Average_Wait_Time), avg_nonus = mean(Non_US_Average_Wait_Times))
+
+
+us <- ggplot(per_date, aes(x = Date)) +
+  geom_col(aes(y = avg_us)) +
+  labs(title = "Avg Wait Times for US", x = "Date", y = "Avg Wait Time") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+nonus <- ggplot(per_date, aes(x = Date)) +
+  geom_col(aes(y = avg_nonus)) +
+  labs(title = "Avg Wait Times for Non US", x = "Date", y = "Avg Wait Time") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+grid.arrange(us, nonus, nrow =2)
 ```

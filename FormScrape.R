@@ -4,8 +4,8 @@ library(tidyverse)
 library(stringr)
 library(jsonlite)
 
-
-
+#Don't actually need this anymore as focusing on one airport
+prep_ids <- function() {
 #got from html of website
 airport_ids <-  '<select name="Id" id="Airport" fdprocessedid="tufdsr">
   <option value="">--- Select Airport/Terminal ---</option>
@@ -224,15 +224,26 @@ for(i in 1:length(list_ids[[1]])){
 }
 out_df #ids and names of all airports
 length(grep("[A-Z]{3}", unique(out_df$id)))
+}
 
+
+ord_id <- 'ORD'
+t5_id <- 'A392'
 #form request
 awt_session <- session("https://awt.cbp.gov/")
 form <- html_form(awt_session)[[1]]
-form_filled <- html_form_set(form, Id = 'ORD', FromDate = '09/18/2021', ToDate = '09/15/2024')
+form_filled <- html_form_set(form, Id = 'ORD', FromDate = '08/01/2024', ToDate = '09/01/2024')
 answer <- session_submit(awt_session, form_filled)
 answer
 tbl <- data.frame(html_table(answer)[[1]])
+for (i in (5:20)){
+  colnames(tbl)[i] <- paste0(paste0(tbl[1, i], " "), gsub("\\s+", "_", tbl[2, i]))
+}
 
-Sys.sleep(runif(1, min = 1, max = 5))
+colnames(tbl)[c(5,7)] <- c('US_Average_Wait_Time', 'Non_US_Average_Wait_Times')
+tbl <- tbl %>% select(-All.12) %>% slice(-c(1, 2))
+write.csv(tbl, 'waitTimes1.csv', row.names=FALSE)
+
+
 
 
