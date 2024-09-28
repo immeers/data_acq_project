@@ -17,6 +17,19 @@ queryString <- list(
 )
 #DOn't run this as the first request is already stored in flightAPIJson.json
 #response <- VERB("GET", url, query = queryString, add_headers('x-rapidapi-key' = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e', 'x-rapidapi-host' = 'flight-info-api.p.rapidapi.com'), content_type("application/octet-stream"))
+connections <- function(data) {
+  conn_list <- list()
+  if (data$segmentInfo$numberOfStops == 0) {
+    conn_list <- append(conn_list, "None")
+  }
+  else {
+    for (i in 1:data$segmentInfo$numberOfStops[[1]]) {
+      conn_list <- append(conn_list, list(data$segmentInfo$intermediateAirports$iata[[i]]$station))
+    }
+  }
+  return (conn_list)
+}
+
 
 parse_resp <- function(response){
   
@@ -29,24 +42,14 @@ parse_resp <- function(response){
   #Just run this to get inital json
   json <- read_json(flightAPIJson.json)
   
-  connections <- function(data) {
-    conn_list <- list()
-    if (data$segmentInfo$numberOfStops == 0) {
-      conn_list <- append(conn_list, "None")
-    }
-    else {
-      for (i in 1:data$segmentInfo$numberOfStops[[1]]) {
-        conn_list <- append(conn_list, list(data$segmentInfo$intermediateAirports$iata[[i]]$station))
-      }
-    }
-    return (conn_list)
-  }
+  
   
   #CLEAN AND APPEND EITHER TO DF OR CSV 
   json <- read_json('flightAPIJson.json')
   flight_data <- data.frame()
   
-  
+  x <- json$data
+  x
   for (i in 1:length(json$data)) {
     data <- json$data[[i]]
     new_row <- data.frame(
