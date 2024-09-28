@@ -72,7 +72,7 @@ Originally, we wanted to get at least a year's worth of data but when we calcula
 
 Below is our R code, which includes the initial GET request and then a loop that facilitates pagination with a next cursor.
 
-```{r Historical Flight Arrivals}
+```{r Historical Flight Arrivals, eval = FALSE}
 library(httr)
 library(jsonlite)
 
@@ -196,8 +196,17 @@ With this API, we get a list of wait times for the desired airport within the da
 Each request (and associated json) had 100 rows. Each row contained 17 elements: carrier, serviceSuffix, flightNumber, flightType, departure, arrival, elapsedTime, cargoTonnage, aircraftType, serviceType, segmentInfo, distance, codeshare, scheduleInstanceKey, statusKey, and statusDetails. Within departure, arrival, distance, and statusDetails were further information about the flight. Cleaning the data required finding the elements that we wanted to use in our analysis and making them into a data frame. Most data points could be put directly into the data frame without manipulation; however, the connecting flights column was created with a function that extracted the connecting flights, if they existed.
 
 ##Summary Statistics for Flights
-```{r Summary Statistics}
+```{r Summary Statistics, eval = FALSE}
+summary(flight_data)
 
+# Plot of most common hours
+flight_data$arrHour <- as.numeric(format(strptime(flight_data$arrTime, format = "%H:%M"), "%H"))
+ggplot(flight_data, aes(x=arrHour)) + geom_bar() +
+  labs(title = 'Arrival Times (Hour)', x = 'Hour', y = 'Count') + theme_minimal()
+
+# Plot of most popular airports
+ggplot(flight_data, aes(x=arrAirport)) + geom_bar() +
+  labs(title = 'Airports Used', x = 'Airport', y = 'Count') + theme_minimal()
 ```
 
 ##Summary Statistics for Wait Times
