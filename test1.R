@@ -7,7 +7,7 @@ library(stringr)
 
 awt_session <- session("https://awt.cbp.gov/")
 form <- html_form(awt_session)[[1]]
-form_filled <- html_form_set(form, Id = 'A041', FromDate = '9/8/2024', ToDate = '9/8/2024')
+form_filled <- html_form_set(form, Id = 'ORD', FromDate = '9/8/2024', ToDate = '9/8/2024')
 answer <- session_submit(awt_session, form_filled)
 answer
 html_table(answer)

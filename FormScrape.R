@@ -228,7 +228,7 @@ length(grep("[A-Z]{3}", unique(out_df$id)))
 #form request
 awt_session <- session("https://awt.cbp.gov/")
 form <- html_form(awt_session)[[1]]
-form_filled <- html_form_set(form, Id = 'A041', FromDate = '09/18/2021', ToDate = '09/15/2024')
+form_filled <- html_form_set(form, Id = 'ORD', FromDate = '09/18/2021', ToDate = '09/15/2024')
 answer <- session_submit(awt_session, form_filled)
 answer
 tbl <- data.frame(html_table(answer)[[1]])
