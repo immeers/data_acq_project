@@ -131,5 +131,7 @@ while(paging_next != ""){
   
   paging_next <- parse_resp(response)
   
-  #CHECK API MIN LIMIT AND ADD SLEEP IF NEED
+  #API Limit = 10 requests per minute
+  Sys.sleep(7)
+  
 }
