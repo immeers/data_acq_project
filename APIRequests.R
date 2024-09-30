@@ -2,8 +2,6 @@ library(httr)
 library(jsonlite)
 library(tidyr)
 
-#test
-
 url <- "https://flight-info-api.p.rapidapi.com/status"
 api_key = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e'
 api_host = 'flight-info-api.p.rapidapi.com'
@@ -16,8 +14,8 @@ queryString <- list(
   CodeType = "IATA",
   ServiceType = "Passenger"
 )
+
 #DOn't run this as the first request is already stored in flightAPIJson.json
-response <- VERB("GET", url, query = queryString, add_headers('x-rapidapi-key' = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e', 'x-rapidapi-host' = 'flight-info-api.p.rapidapi.com'), content_type("application/octet-stream"))
 connections <- function(stops, stops_list) {
   conn_list <- list()
   if (stops == 0) {
@@ -38,17 +36,22 @@ parse_resp <- function(response){
   content <- content(response, "text")
   json <- fromJSON(content)
   list_data <- jsonlite::flatten(json$data) #flatten data frame, still with some nesting, will need to be cleaned
-  #particularly look at status details for scheduled departure/arrival (will be useful for delay)
-  
-  #Just run this to get inital json
+  # #particularly look at status details for scheduled departure/arrival (will be useful for delay)
 
-  write_json(content, 'flightAPIJson.json')
   
-  #CLEAN AND APPEND EITHER TO DF OR CSV 
- # json <- read_json('flightAPIJson.json')
+  #Writing JSON resp to file incase something happens
+  existing_data <- fromJSON("flightAPIJson.json")
+  
+  combined_data <- append(existing_data, content)
+  
+  write_json(combined_data, 'flightAPIJson.json')
+  
+  # 
+  # #CLEAN AND APPEND EITHER TO DF OR CSV 
+  # json <- fromJSON('flightAPIJson.json')
   flight_data <- data.frame()
 
-  for (i in 1:length(list_data)) {
+  for (i in 1:nrow(list_data)) {
     # data <- json$data[[i]]
     # new_row <- data.frame(
     #   airline = data$carrier$iata,
@@ -95,39 +98,28 @@ parse_resp <- function(response){
       arrGate = ifelse(is.null(list_data$statusDetails[[i]]$arrival$gate), NA, list_data$statusDetails[[i]]$arrival$gate),
       
       numStops  = data$segmentInfo.numberOfStops,
-      connections = c(connections(list_data$segmentInfo.numberOfStops[[i]], list_data$segmentInfo.intermediateAirports.iata[[i]])),
+      connections = I(list(connections(list_data$segmentInfo.numberOfStops[[i]], list_data$segmentInfo.intermediateAirports.iata[[i]]))),
       miles = data$distance.accumulatedGreatCircleMiles
     )
     
     
     
-    #new_row1 <- cbind(new_row1, newrow2)
     flight_data <- rbind(flight_data, new_row1)
   }
-  write.csv(flight_data, 'request1.csv', row.names=FALSE)
+  write.csv(flight_data, 'request1.csv', row.names=FALSE, append=TRUE)
   
   
   
   paging_next <- json$paging$`next`
   return(paging_next)
 }
-content <- content(response, "text")
-json <- fromJSON(content)
-list_data <- jsonlite::flatten(json$data) #flatten data frame, still with some nesting, will need to be cleaned
-#particularly look at status details for scheduled departure/arrival (will be useful for delay)
-
-x <- list_data$statusDetails[[3]]
-x$departure$estimatedTime$outGateVariation
-x$departure$estimatedTime$outGate
-x$departure$estimatedTime$offGround
-x$departure$actualTime$outGateVariation
-x$departure$actualTime$outGate
-x$departure$actualTime$offGround
-
-
 
 #This will run until the API limit is reached or reach end of pages
 #Keep track of paging_next when reach limit so we can use for next account
+
+#INITIAL REQUEST, but we already have it
+response <- VERB("GET", url, query = queryString, add_headers('x-rapidapi-key' = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e', 'x-rapidapi-host' = 'flight-info-api.p.rapidapi.com'), content_type("application/octet-stream"))
+
 
 while(paging_next != ""){
   response <- VERB("GET", url = paging_next, add_headers('x-rapidapi-key' = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e', 'x-rapidapi-host' = 'flight-info-api.p.rapidapi.com'), content_type("application/octet-stream"))
