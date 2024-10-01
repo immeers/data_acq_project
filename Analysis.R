@@ -13,9 +13,9 @@ aa1 <- aa1 %>%
 colnames(aa2) <- colnames(aa1)
 
 aa <- bind_rows(aa1, aa2)
-
 aa <- aa %>%
   filter(deptAirport != 'ORD')
+aa$arrDay <- as.Date(aa$arrDay)
 
 ## Get Wait Times
 wait <- read.csv('waitTimes1.csv')
@@ -37,19 +37,28 @@ aa$deptTime <- str_extract(aa$actualOutGate, "\\d{2}:\\d{2}")
 aa$arrTime <- str_extract(aa$arrTime, "\\d{2}:\\d{2}")
 
 # Merge dataframes
+## Make total mins column for both
+aa <- aa %>%
+  mutate(arrMinutes = as.numeric(sub(":.*", "", arrTime)) * 60 + as.numeric(sub(".*:", "", arrTime)))
+wait <- wait %>%
+  mutate(arrStartMins = as.numeric(sub(":.*", "", arrStart)) * 60 + as.numeric(sub(".*:", "", arrStart)),
+         arrEndMins = as.numeric(sub(":.*", "", arrEnd)) * 60 + as.numeric(sub(".*:", "", arrEnd)))
 # if the arrival time is between arrStart, and arrEnd, take that row of data and merge
-assign_hour <- function(row) {
-  for (i in 1:nrow(wait)) {
-    row_time <- as.POSIXct(row['arrTime'], format="%H:%M")
-    start <- as.POSIXct(wait$arrStart[i], format="%H:%M")
-    end <- as.POSIXct(wait$arrEnd[i], format="%H:%M")
-    if ((row_time >= start) & (row_time <= end)) {
-      # assign the rest of the columns
-      row['US_Average_Wait_Time'] <- wait$US_Average_Wait_Time[i]
-      row['US_Max_Wait_Time'] <- wait$US_Max_Wait_Time[i]
-    }
+assign_hour <- function(row, wait, colName) {
+  matched_row <- wait %>%
+    filter(Date == row[['arrDay']], 
+           arrStartMins <= row[['arrMinutes']],
+           arrEndMins >= row[['arrMinutes']])
+  
+  if (nrow(matched_row) > 0) {
+    row[[colName]] <<- matched_row[[colName]]
+  } else {
+    row[[colName]] <<- 0
   }
 }
 
-df <- apply(aa, 1, assign_hour)
+df <- aa
+df$US_Average_Wait_Time <- apply(df, 1, assign_hour(wait, 'US_Average_Wait_Time'))
+df$US_Max_Wait_Time <- NA
+
 
