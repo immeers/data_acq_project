@@ -19,6 +19,8 @@ aa <- aa %>%
 
 ## Get Wait Times
 wait <- read.csv('waitTimes1.csv')
+colnames(wait)[c(6,8)] <- c('US_Max_Wait_Time', 'Non_US_Max_Wait_Time')
+
 wait$Date <- mdy(wait$Date)
 wait <- wait %>%
   filter(Date >= mdy('08/01/2024') & Date <= mdy('08/07/2024'))
@@ -44,7 +46,7 @@ assign_hour <- function(row) {
     if ((row_time >= start) & (row_time <= end)) {
       # assign the rest of the columns
       row['US_Average_Wait_Time'] <- wait$US_Average_Wait_Time[i]
-      row['U.S..Citizen.Max_Wait_Time'] <- wait$U.S..Citizen.Max_Wait_Time[i]
+      row['US_Max_Wait_Time'] <- wait$US_Max_Wait_Time[i]
     }
   }
 }

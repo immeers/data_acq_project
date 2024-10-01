@@ -35,7 +35,7 @@ Our motivation for pursuing this problem is our experiences with international t
 #### Significance
 This research problem is significant as oftentimes, flights take longer than expected or airports have unexpected delays. We want to be able to minimize wasted time in the airport and understand the likelihood of making a connecting flight based on historical flight data from a number of different airports. 
 
-When flying internationally into the United States, this information can be very useful to help plan one's travel. Based on their predicted total flight time, travelers can select connecting flights that minimize wasted time waiting around in the airport and allow for adequate times between flights. This prediction information will also help travelers decide what time to book taxis or hire cars, or decide which airlines and airports to avoid at different times because of unreliability.
+When flying internationally into the United States, this information can be very useful to help plan one's travel. Based on their predicted total flight time, travelers can select connecting flights that minimize wasted time waiting around in the airport and allow for adequate times between flights. This prediction information will also help travelers decide what time to book taxis or hire cars, or decide what times to avoid because of business.
 
 ## Data Acquisition Process
 Describe the methodology used to collect the data. This should include the tools used, the sampling method, and the sample size, the target population. Present any challenges or issues you found. Be thorough. 
@@ -45,10 +45,9 @@ For this API, we are submitting 3 form elements: airportID, start date, and end 
 
 #### The REST API data from: https://rapidapi.com/oag-oag-default/api/flight-info-api
 For this API, we had to create a free account with a limited number of requests.
-Each API request provided 100 rows per page, and we extracted the desired information from nested tables in each row of the json file. Because we only have the free version of the API, we have a limited number of requests from the API. Our solution is to save a cleaned csv file of the data from each request and merge these csv files after we have enough data.
+Each API request provided 100 rows per page, and we extracted the desired information from nested tables in each row of the json file. Because we only have the free version of the API, we have a limited number of requests from the API. Our solution is to clean the JSON into a data frame with each request then append that data frame to a CSV.
 
-## Data Acquisition Process
-### Historical flight arrivals data 
+## Flight Arrivals Data 
 We obtained free API keys for the OAG info API and identified the GET status endpoint as the most suitable for our project. This endpoint provides data on:
 
   - Core Schedule information e.g. carrier, flight number, departure/arrival times, flight date, departure/destination airports
@@ -57,7 +56,7 @@ We obtained free API keys for the OAG info API and identified the GET status end
 
   - Estimate and actual times for runway
 
-  - Flight delays, cancelations, diversions and recovery
+  - Flight delays, cancellations, diversions and recovery
 
   - Aircraft type and tail number
 
@@ -69,106 +68,198 @@ We obtained free API keys for the OAG info API and identified the GET status end
 
 These will all be useful features to predict the future flight arrival information.
 
-Originally, we wanted to get at least a year's worth of data but when we calculated the number of flights per day (up to 1000) and the page limit of 100, we realized this world take a huge amount of requests far beyond the usage limit for this API. Instead we will attempt to get at least a month's worth of data (still 1000s of flights) in order to perform our analysis.
+
+### Challenges
+
+Originally, we wanted to get at least a year's worth of data but when we calculated the number of flights per day (up to 1000) and the page limit of 100, we realized this world take a huge amount of requests far beyond the usage limit for this API. We are only using a Basic Plan, which is 50 total requests with a maximum of 10 per min. 
+
+We estimated that using 2 x API Keys we would roughly be able to obtain a week's worth of data. However, upon implementation we realized that there was a row for every code-share, meaning some flights that were operated by an alliance of airlines had 7 different flight codes so 7 rows describing the same physical flight.
+
+Finally, we decided on also filtering our request to include just American Airlines this way we avoid the code-share issue and could still get enough data to analyze over time.
+
+### Implementation
 
 Below is our R code, which includes the initial GET request and then a loop that facilitates pagination with a next cursor.
 
-```{r Historical Flight Arrivals, eval = FALSE}
-library(httr)
-library(jsonlite)
 
-#test
+These are the features that differ from our first attempt at getting arrivals data but we soon realized the magnitude of the data and decided to pivot our request to only request American Airlines, rather than all airlines.
 
+We chose American Airlines because it is the airline we fly frequently ourselves and has both domestic and international flights.
+
+```{r Original Code Features, eval = FALSE}
+#Our first API key
 url <- "https://flight-info-api.p.rapidapi.com/status"
 api_key = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e'
 api_host = 'flight-info-api.p.rapidapi.com'
 
+#Our original query string without the filter
 queryString <- list(
   version = "v2",
   ArrivalDateTime = "2024-08-01T00:00/2024-09-01T00:00",
-  DepartureAirport = "ORD",
+  ArrivalAirport = "ORD",
   FlightType = "Scheduled",
   CodeType = "IATA",
-  ServiceType = "Passenger"
-)
-#DOn't run this as the first request is already stored in flightAPIJson.json
-#response <- VERB("GET", url, query = queryString, add_headers('x-rapidapi-key' = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e', 'x-rapidapi-host' = 'flight-info-api.p.rapidapi.com'), content_type("application/octet-stream"))
-connections <- function(data) {
-  conn_list <- list()
-  if (data$segmentInfo$numberOfStops == 0) {
-    conn_list <- append(conn_list, "None")
-  }
-  else {
-    for (i in 1:data$segmentInfo$numberOfStops[[1]]) {
-      conn_list <- append(conn_list, list(data$segmentInfo$intermediateAirports$iata[[i]]$station))
-    }
-  }
-  return (conn_list)
-}
-
-
-parse_resp <- function(response){
+  ServiceType = "Passenger")
   
+  #The original line we used to write our JSOn
+  write_json(content, 'flightAPIJson.json')
+
+  #The original line we used to write our flight data to CSV
+  write.csv(flight_data, 'requestA.csv', row.names=FALSE)
+
+
+```
+
+
+This is the final code that we used for our American Airlines only requests. The query string changes to include the CarrierCode = 'AA' and the csv and json file names change so we write to another place. 
+
+```{r Historical Flight Arrivals American Airlines, eval = FALSE}
+
+library(httr)
+library(jsonlite)
+library(tidyr)
+
+#Query String for only American Airlines to ORD
+#We started from 15:52 as we already had data up to 15:51 from our initial attempt with all airlines
+queryString <- list(
+  version = "v2",
+  ArrivalDateTime = "2024-08-01T15:52/2024-09-01T00:00",
+  ArrivalAirport = "ORD",
+  FlightType = "Scheduled",
+  CodeType = "IATA",
+  ServiceType = "Passenger",
+  CarrierCode = "AA"
+
+
+
+#Initial API Request
+url <- 'https://flight-info-api.p.rapidapi.com/status'
+
+#GET request
+#We used a second API key as we reached our limit on the first one
+response <- VERB('GET', url = url, query = queryString, add_headers('x-rapidapi-key' = '572d8c59b1mshca4d962b7338c05p17bb46jsnfa4dbd8e8c4d', 'x-rapidapi-host' = 'flight-info-api.p.rapidapi.com'), content_type("application/octet-stream"))
+
+content <- content(response, "text")
+
+json <- fromJSON(content)
+
+list_data <- jsonlite::flatten(json$data) #flatten data frame, still with some nesting, will need to be cleaned
+
+write_json(content, 'flightAPIJson3.json')
+
+paging_next <- parse_response(list_data)
+
+
+
+#Subsequent API requests where we use the cursor to navigate to the next page
+while (paging_next != ""){
+
+  response <- VERB('GET', url = paging_next, add_headers('x-rapidapi-key' = '572d8c59b1mshca4d962b7338c05p17bb46jsnfa4dbd8e8c4d', 'x-rapidapi-host' = 'flight-info-api.p.rapidapi.com'), content_type("application/octet-stream"))
+  
+  #This we break the loop if a request fails, including 429 when we reach limit
+  if (status_code(response) != 200) {
+    print("Error with request")
+    break #break out of while
+    
+  }
   
   content <- content(response, "text")
   json <- fromJSON(content)
   list_data <- jsonlite::flatten(json$data) #flatten data frame, still with some nesting, will need to be cleaned
-  #particularly look at status details for scheduled departure/arrival (will be useful for delay)
+
   
-  #Just run this to get inital json
-  json <- read_json(flightAPIJson.json)
+  #Writing JSON resp to file incase something happens
+  existing_data <- fromJSON("flightAPIJson3.json")
   
+  combined_data <- append(existing_data, content)
   
+  write_json(combined_data, 'flightAPIJson3.json')
   
-  #CLEAN AND APPEND EITHER TO DF OR CSV 
-  json <- read_json('flightAPIJson.json')
-  flight_data <- data.frame()
+  #Parse data and write to CSV
+  paging_next <- parse_response(list_data)
   
-  x <- json$data
-  x
-  for (i in 1:length(json$data)) {
-    data <- json$data[[i]]
-    new_row <- data.frame(
-      deptAirport = data$departure$airport$iata,
-      arrAirport = data$arrival$airport$iata,
-      deptDay = data$departure$date$utc,
-      deptTime = data$departure$time$utc,
-      arrDay = data$arrival$date$utc,
-      arrTime = data$arrival$time$utc,
-      deptCountry = data$departure$country$code,
-      arrCountry = data$arrival$country$code,
+  Sys.sleep(7) #Add a pause to make sure we stay below the 10 requests per min limit  
+
+  
+}
+
+
+##Function that parses data from the request into a df and then writes to a csv
+parse_response(list_data){
+  
+  flight_data = data.frame()
+  for (i in 1:nrow(list_data)) {
+    
+    data = list_data[i,]
+    new_row1 <- data.frame(
+      airline = data$carrier.iata,
+      timeOfFlight = data$elapsedTime,
+      deptAirport = data$departure.airport.iata,
+      arrAirport = data$arrival.airport.iata,
+      arrDay = data$arrival.date.local,
+      arrTime = data$arrival.time.local,
+      deptCountry = data$departure.country.code,
       flightNumber = data$flightNumber,
-      numStops  = data$segmentInfo$numberOfStops,
-      connections = connections(data)[[1]],
-      miles = data$distance$accumulatedGreatCircleMiles
+      
+      estimatedOutGateVariation = ifelse(is.null(list_data$statusDetails[[i]]$departure$estimatedTime$outGateVariation[[1]]), NA, list_data$statusDetails[[i]]$departure$estimatedTime$outGateVariation[[1]]),
+      estimatedOutGate = ifelse(is.null(list_data$statusDetails[[i]]$departure$estimatedTime$outGate), NA, list_data$statusDetails[[i]]$departure$estimatedTime$outGate[[1]]),
+      estimatedOffGround = ifelse(is.null(list_data$statusDetails[[i]]$departure$estimatedTime$offGround), NA, list_data$statusDetails[[i]]$departure$estimatedTime$offGround[[1]]),
+      actualOutGateVariation = ifelse(is.null(list_data$statusDetails[[i]]$departure$actualTime$outGateVariation), NA, list_data$statusDetails[[i]]$departure$actualTime$outGateVariation[[1]]),
+      actualOutGate = ifelse(is.null(list_data$statusDetails[[i]]$departure$actualTime$outGate), NA, list_data$statusDetails[[i]]$departure$actualTime$outGate[[1]]), 
+      actualOffGround = ifelse(is.null(list_data$statusDetails[[i]]$departure$actualTime$offGround), NA, list_data$statusDetails[[i]]$departure$actualTime$offGround[[1]]),
+      
+      estimatedInGateVariation = ifelse(is.null(list_data$statusDetails[[i]]$arrival$estimatedTime$inGateVariation), NA ,list_data$statusDetails[[i]]$arrival$estimatedTime$inGateVariation[[1]]),
+      estimatedInGate = ifelse(is.null(list_data$statusDetails[[i]]$arrival$estimatedTime$inGate), NA, list_data$statusDetails[[i]]$arrival$estimatedTime$inGate[[1]]),
+      estimatedOnGround = ifelse(is.null(list_data$statusDetails[[i]]$arrival$estimatedTime$onGround), NA, list_data$statusDetails[[i]]$arrival$estimatedTime$onGround[[1]]),
+      actualInGateVariation = ifelse(is.null(list_data$statusDetails[[i]]$arrival$actualTime$inGateVariation), NA, list_data$statusDetails[[i]]$arrival$actualTime$inGateVariation[[1]]), 
+      actualInGate = ifelse(is.null(list_data$statusDetails[[i]]$arrival$actualTime$inGate), NA, list_data$statusDetails[[i]]$arrival$actualTime$inGate[[1]]),
+      actualOnGround = ifelse(is.null(list_data$statusDetails[[i]]$arrival$actualTime$onGround), NA, list_data$statusDetails[[i]]$arrival$actualTime$onGround[[1]]),
+      
+      arrTerminal = ifelse(is.null(list_data$statusDetails[[i]]$arrival$actualTerminal), NA, list_data$statusDetails[[i]]$arrival$actualTerminal),
+      arrGate = ifelse(is.null(list_data$statusDetails[[i]]$arrival$gate), NA, list_data$statusDetails[[i]]$arrival$gate),
+      
+      numStops  = data$segmentInfo.numberOfStops,
+      connections = I(list(connections(list_data$segmentInfo.numberOfStops[[i]], list_data$segmentInfo.intermediateAirports.iata[[i]]))),
+      miles = data$distance.accumulatedGreatCircleMiles
     )
-    flight_data <- rbind(flight_data, new_row)
+    
+    
+    
+    flight_data <- rbind(flight_data, new_row1)
   }
-  write.csv(flight_data, 'request1.csv', row.names=FALSE)
+  # Identify list columns
+  list_columns <- sapply(flight_data, is.list)
   
-  
-  
+  # Convert list columns to character vectors
+  flight_data[list_columns] <- lapply(flight_data[list_columns], function(x) sapply(x, toString))
+  # Append new data to the same CSV file
+  write.table(flight_data, "AmericanAirlines2.csv",
+              append = TRUE,
+              sep = ",",
+              col.names = FALSE,
+              row.names = FALSE,
+              quote = FALSE)
   paging_next <- json$paging$`next`
   return(paging_next)
 }
 
 
-#This will run until the API limit is reached or reach end of pages
-#Keep track of paging_next when reach limit so we can use for next account
-
-while(paging_next != ""){
-  response <- VERB("GET", url = paging_next, add_headers('x-rapidapi-key' = '2a26d82d2fmsh3b29970cdca97d1p138b78jsn60a78272a81e', 'x-rapidapi-host' = 'flight-info-api.p.rapidapi.com'), content_type("application/octet-stream"))
-  
-  if (status_code(response) != 200) {
-    break #break out of while
-    print("Error with request")
+#Function that turns connections into a list to insert into df
+connections <- function(stops, stops_list) {
+  conn_list <- list()
+  if (stops == 0) {
+    conn_list <- append(conn_list, "None")
   }
-  
-  paging_next <- parse_resp(response)
-  
-  #CHECK API MIN LIMIT AND ADD SLEEP IF NEED
+  else {
+    for (i in 1:stops) {
+      conn_list <- append(conn_list, list(stops_list$station[i]))
+    }
+  }
+  return (conn_list)
 }
+
 ```
+
 
 ```{r Data Frame Preview}
 library(dplyr)
@@ -191,9 +282,10 @@ dim(aa2)
 ```
 
 
-### Historical airport wait times
+## Airport Wait Times
 We obtained this data using FORM request on the https://awt.cbp.gov/ website. At first, we searched the page html to find the appropriate ID for Chicago O'Hare Aiport then we specified the date range for wait time collection. This will be performed after the flight API request as this will guide how many days we need to get wait times for.
 
+###Implementation
 Below is our R code, which submits a HTML form and returns a HTML table to clean into a data frame.
 
 ```{r Airport Wait Times, eval = FALSE}
@@ -240,41 +332,114 @@ Describe the structure of the dataset that was acquired and any cleaning or prep
 With this API, we get a list of wait times for the desired airport within the date range we provide. This dataset includes average and max wait times for US, Non-US citizens, and all people. 
 
 #### The REST API data from: https://rapidapi.com/oag-oag-default/api/flight-info-api
-Each request (and associated json) had 100 rows. Each row contained 17 elements: carrier, serviceSuffix, flightNumber, flightType, departure, arrival, elapsedTime, cargoTonnage, aircraftType, serviceType, segmentInfo, distance, codeshare, scheduleInstanceKey, statusKey, and statusDetails. Within departure, arrival, distance, and statusDetails were further information about the flight. Cleaning the data required finding the elements that we wanted to use in our analysis and making them into a data frame. Most data points could be put directly into the data frame without manipulation; however, the connecting flights column was created with a function that extracted the connecting flights, if they existed.
+Each request (and associated json) had 100 rows. Each row contained 17 elements: carrier, serviceSuffix, flightNumber, flightType, departure, arrival, elapsedTime, cargoTonnage, aircraftType, serviceType, segmentInfo, distance, codeshare, scheduleInstanceKey, statusKey, and statusDetails. Within departure, arrival, distance, and statusDetails were further information about the flight. Cleaning the data required finding the elements that we wanted to use in our analysis and making them into a data frame. Most data points could be put directly into the data frame without manipulation. However, the connecting flights column was created with a function that extracted the connecting flights, if they existed. Also some fields did not exist in the request so we needed validation to enter NA in order for the data frame to still be created.
 
 ##Summary Statistics for Flights
 ```{r Summary Statistics1}
 library(ggplot2)
-summary(flight_data)
+library(countrycode)
+summary(aa)
+aa$CountryName <- countrycode(aa$deptCountry, origin = "iso2c", destination = "country.name")
+
 
 # Plot of most common hours
-flight_data$arrHour <- as.numeric(format(strptime(flight_data$arrTime, format = "%H:%M"), "%H"))
-ggplot(flight_data, aes(x=arrHour)) + geom_bar() +
-  labs(title = 'Arrival Times (Hour)', x = 'Hour', y = 'Count') + theme_minimal()
+aa$arrHour <- as.numeric(format(strptime(aa$arrTime, format = "%H:%M"), "%H"))
+aa$international <- ifelse(aa$deptAirport !=  'US', 1,0)
 
-# Plot of most popular airports
-ggplot(flight_data, aes(x=arrAirport)) + geom_bar() +
-  labs(title = 'Airports Used', x = 'Airport', y = 'Count') + theme_minimal()
+
+ggplot(aa, aes(x=arrHour)) + geom_bar() +
+  labs(title = 'Number of Arrivals per Hour',subtitle = '8/1/24 - 8/7/24', x = 'Hour', y = 'Count') + theme_minimal()
+
+ggplot(aa[aa$international==1,], aes(x=arrHour)) + geom_bar() +
+  labs(title = 'Number of International Arrivals per Hour',subtitle = '8/1/24 - 8/7/24', x = 'Hour', y = 'Count') + theme_minimal()
 ```
+The most common hours for both domestic and flights to arrive are around the middle of the day. However, domestic flights peak earlier than international flights starting to pick up at around 7am. This makes sense as to account for time difference, very few international flights land early in the morning in the US. Furthermore, the international flights are most frequent after 4pm, which is interesting as this wasn't the peak for arrival wait times, but this was where there was a larger difference between US and Non-US citizens.
+```{r}
+international_delay <- aa[aa$deptCountry != 'US',] %>% mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0)) %>% select(CountryName, delayed) %>% group_by(CountryName) %>% summarise(del = sum(delayed)/n())
+
+
+dow_delay <- aa 
+dow_delay$weekday <- wday(aa$arrDay, label = TRUE)
+dow_delay <- dow_delay%>% mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0)) %>% select(weekday, delayed) %>% group_by(weekday) %>% summarise(del = sum(delayed)/n())
+
+# Plot of delays in international airports
+ggplot(international_delay, aes(x = CountryName, y = del)) +
+  geom_bar(stat = "identity") +
+  guides(x = guide_axis(angle = 45)) +
+  labs(title = 'Delayed International Arrivals', subtitle = '8/1/24 - 8/7/24', x = 'Country', y = '% of Flights Delayed') +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal()
+
+```
+
+When looking at delays by country, there is no significant outliers for country's that are consistently delayed. However, we can see that in this period there were no delayed flights from PR or Finland. This may be useful going forward to use country as a feature to predict delay.
+```{r}
+
+# Plot of delays by dow
+ggplot(dow_delay, aes(x = weekday, y = del)) +
+  geom_bar(stat = "identity") +
+  guides(x = guide_axis(angle = 45)) +
+  labs(title = 'Delayed Flights by DOW', subtitle = '8/1/24 - 8/7/24', x = 'DOW', y = '% of Flights Delayed') +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal()
+
+```
+
+Similar to countries, there are no significant outliers for days of the week that are particularly delayed. However, Monday seems to have significantly more on-time flights than the others days, this could be because it is the start of the week and there are no delays from previous days that have a knock-on effect at this point.
 
 ##Summary Statistics for Wait Times
 ```{r Summary Statistics}
 library(gridExtra)
 library(dplyr)
-summary(wait_data)
+library(lubridate)
+library(ggplot2)
+library(tidyr)
 
-per_date <- wait_data %>% group_by(Date) %>% summarise(avg_us =  mean(US_Average_Wait_Time), avg_nonus = mean(Non_US_Average_Wait_Times))
+summary(wait)
+
+per_date <- wait %>% group_by(Date) %>% summarise(Avg_US =  mean(US_Average_Wait_Time), Avg_NonUS = mean(Non_US_Average_Wait_Times)) %>% pivot_longer(cols = c(Avg_US, Avg_NonUS), names_to = 'Status')
+per_date$weekday <- wday(per_date$Date, label = TRUE)
+
+per_date_max <- wait %>% group_by(Date) %>% summarise(Max_US =  max(US_Max_Wait_Time), Max_NonUS = max(Non_US_Max_Wait_Time)) %>% pivot_longer(cols = c(Max_US, Max_NonUS), names_to = 'Status')
+per_date_max$weekday <- wday(per_date$Date, label = TRUE)
 
 
-us <- ggplot(per_date, aes(x = Date)) +
-  geom_col(aes(y = avg_us)) +
-  labs(title = "Avg Wait Times for US", x = "Date", y = "Avg Wait Time") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+per_hour_wait <- wait[,c(5, 7, 23)]
+per_hour_wait <- per_hour_wait %>% group_by(arrStart) %>% summarise(Avg_US =  mean(US_Average_Wait_Time), Avg_NonUS = mean(Non_US_Average_Wait_Times)) %>% pivot_longer(cols = c(Avg_US, Avg_NonUS), names_to = 'Status')
 
-nonus <- ggplot(per_date, aes(x = Date)) +
-  geom_col(aes(y = avg_nonus)) +
-  labs(title = "Avg Wait Times for Non US", x = "Date", y = "Avg Wait Time") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
-
-grid.arrange(us, nonus, nrow =2)
+stacked_hourly <- ggplot(per_hour_wait, aes(x = arrStart, y = value, fill = Status)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(title = "Stacked Bar Plot for Avg Wait Times of US and Non-US Citizens By Hour",
+       subtitle = '8/1/24 - 8/7/24',
+       x = "Hour",
+       y = "Avg Wait in Mins",) 
+  theme_minimal()
+stacked_hourly
 ```
+If we look at the average wait time per hour, there is not much difference between US and Non-US Citizens. However, you can see between 3-4am and 5-11pm it is significantly faster compared to the later hours between 11pm and 2am and the middle of the day between 5am and 4pm. This makes sense as looking at our flights data there are a high concentration of flights landing at that time or the later times could be when flights that were delayed are finally getting in.
+
+```{r}
+
+per_hour_wait$datetime <- with(per_hour_wait, ymd(per_hour_wait$Date) + hm(per_hour_wait$arrStart))
+# Create the stacked bar plot
+stacked_avg <- ggplot(per_date, aes(x = weekday, y = value, fill = Status)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Stacked Bar Plot for Avg Wait Times of US and Non-US Citizens by DOW",
+       subtitle = '8/1/24 - 8/7/24',
+       x = "DOW",
+       y = "Average Wait in Mins",) 
+  theme_minimal()
+
+stacked_max <- ggplot(per_date_max, aes(x = weekday, y = value, fill = Status)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Stacked Bar Plot for Max Wait Times of US and Non-US Citizens by DOW",
+       subtitle = '8/1/24 - 8/7/24',
+       x = "DOW",
+       y = "Max Wait in Mins",) 
+  theme_minimal()
+
+
+grid.arrange(stacked_max, stacked_avg, nrow =2)
+```
+You can see there is not much difference in Max Wait Times but for Average Wait Times, they are slightly longer for Non-US citizens, which is expected. In addition, Wednesday seems to be the business and Sunday is the quietest for arriving in O'Hare.
