@@ -171,8 +171,23 @@ while(paging_next != ""){
 ```
 
 ```{r Data Frame Preview}
-flight_data <- read.csv('request1.csv')
-head(flight_data)
+library(dplyr)
+library(readr)
+
+#This was our original attempt to 
+flight_data <- read_csv('requestA.csv')
+summary(flight_data)
+min(flight_data$arrTime)
+american_airlines <- flight_data %>% arrange(arrDay, arrTime) %>% filter(airline == 'AA')
+write.csv(american_airlines, col.names = TRUE, file = 'AmericanAirlines.csv')
+
+
+flight_data %>% select(airline) %>% group_by(airline) %>% mutate(count = n()) %>% unique()
+
+aa2 <- read_csv('AmericanAirlines2.csv') 
+colnames(aa2) <- colnames(american_airlines) 
+aa2 %>% arrange(arrDay, arrTime) %>% tail() 
+dim(aa2)
 ```
 
 
