@@ -309,6 +309,8 @@ With this API, we get a list of wait times for the desired airport within the da
 #### The REST API data from: https://rapidapi.com/oag-oag-default/api/flight-info-api
 Each request (and associated json) had 100 rows. Each row contained 17 elements: carrier, serviceSuffix, flightNumber, flightType, departure, arrival, elapsedTime, cargoTonnage, aircraftType, serviceType, segmentInfo, distance, codeshare, scheduleInstanceKey, statusKey, and statusDetails. Within departure, arrival, distance, and statusDetails were further information about the flight. Cleaning the data required finding the elements that we wanted to use in our analysis and making them into a data frame. Most data points could be put directly into the data frame without manipulation. However, the connecting flights column was created with a function that extracted the connecting flights, if they existed. Also some fields did not exist in the request so we needed validation to enter NA in order for the data frame to still be created.
 
+##Exploratory Analysis
+
 #### Summary Statistics for Flights
 ```{r Summary Statistics1}
 library(ggplot2)
@@ -318,17 +320,22 @@ aa$CountryName <- countrycode(aa$deptCountry, origin = "iso2c", destination = "c
 
 
 # Plot of most common hours
-aa$arrHour <- as.numeric(format(strptime(aa$arrTime, format = "%H:%M"), "%H"))
-aa$international <- ifelse(aa$deptAirport !=  'US', 1,0)
+arrivals$arrHour <- as.numeric(format(strptime(aa$arrTime, format = "%H:%M"), "%H"))
+arrivals$international <- ifelse(aa$deptAirport !=  'US', 1,0)
+arrivals <- arrivals %>%
+  group_by(arrHour) %>%
+  summarize(Count = n())
 
 
-ggplot(aa, aes(x=arrHour)) + geom_bar() +
+ggplot(aa, aes(x=arrHour)) + geom_bar(fill = '#F8766D') +
   labs(title = 'Number of Arrivals per Hour',subtitle = '8/1/24 - 8/7/24', x = 'Hour', y = 'Count') + theme_minimal()
 
-ggplot(aa[aa$international==1,], aes(x=arrHour)) + geom_bar() +
+ggplot(aa[aa$international==1,], aes(x=arrHour)) + geom_bar(fill = '#F8766D') +
   labs(title = 'Number of International Arrivals per Hour',subtitle = '8/1/24 - 8/7/24', x = 'Hour', y = 'Count') + theme_minimal()
 ```
-The most common hours for both domestic and flights to arrive are around the middle of the day. However, domestic flights peak earlier than international flights starting to pick up at around 7am. This makes sense as to account for time difference, very few international flights land early in the morning in the US. Furthermore, the international flights are most frequent after 4pm, which is interesting as this wasn't the peak for arrival wait times, but this was where there was a larger difference between US and Non-US citizens.
+
+The most common hours for both domestic and flights to arrive are around the middle of the day. However, domestic flights peak earlier than international flights starting to pick up at around 7am. This makes sense as to account for time difference, very few international flights (from American Airlines which are generally coming from Europe) land early in the morning in the US.
+
 ```{r}
 international_delay <- aa[aa$deptCountry != 'US',] %>% mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0)) %>% select(CountryName, delayed) %>% group_by(CountryName) %>% summarise(del = sum(delayed)/n())
 
@@ -347,15 +354,18 @@ ggplot(international_delay, aes(x = CountryName, y = del)) +
 
 ```
 
-When looking at delays by country, there is no significant outliers for country's that are consistently delayed. However, we can see that in this period there were no delayed flights from PR or Finland. This may be useful going forward to use country as a feature to predict delay.
+When looking at delays by country, there is no significant outliers for countries that are consistently delayed. However, we can see that in this period there were no delayed flights from PR or Finland. This may be useful going forward to use country as a feature to predict delay. However, it would be more useful if we could compare different airlines per country as then people could make an informed choice on which airline to choose based on delays.
+
 ```{r}
 
 # Plot of delays by dow
-ggplot(dow_delay, aes(x = weekday, y = del)) +
+dow_delay$color <- ifelse(dow_delay$weekday == 'Mon', "green", ifelse(dow_delay$weekday == 'Wed', "blue", "red"))
+ggplot(dow_delay, aes(x = weekday, y = del, fill = color)) +
   geom_bar(stat = "identity") +
   guides(x = guide_axis(angle = 45)) +
   labs(title = 'Delayed Flights by DOW', subtitle = '8/1/24 - 8/7/24', x = 'DOW', y = '% of Flights Delayed') +
   scale_y_continuous(labels = scales::percent) +
+  guides(fill = "none") +  # Remove the legend
   theme_minimal()
 
 ```
@@ -392,11 +402,15 @@ stacked_hourly <- ggplot(per_hour_wait, aes(x = arrStart, y = value, fill = Stat
   theme_minimal()
 stacked_hourly
 ```
-If we look at the average wait time per hour, there is not much difference between US and Non-US Citizens. However, you can see between 3-4am and 5-11pm it is significantly faster compared to the later hours between 11pm and 2am and the middle of the day between 5am and 4pm. This makes sense as looking at our flights data there are a high concentration of flights landing at that time or the later times could be when flights that were delayed are finally getting in.
+If we look at the average wait time per hour, there is not much difference between US and Non-US Citizens. However, you can see between 3-4am and 5-11pm it is significantly faster compared to the later hours between 11pm and 2am and the middle of the day between 5am and 4pm. This doesn't really make sense as our flight data indicated that all international flights are landing after 5pm so that would be when international arrivals is busiest.
+
+There are two explanations for why this data is not as expected.
+1. We only used American Airlines, which flies to a lot of international destination but not all. Specifically, not many countries in the Pacific. Most international flights from Europe will land in the late afternoon/evening in the US because of time difference. So there could be a large number of flights that are landing in the middle of the day from other airlines that are increasing wait times but are not showing up in our analysis.
+
+2. Number of flights might not be exactly proportional to wait times as certain international citizens take longer to get through customs than others. For example, a large number of flights from Ireland may not take too long to get through border control as they have pre-clearance in Ireland. However, a singular flight from Australia or China might take a lot longer to get through customs as the US has different/more strict immigration policies.
 
 ```{r}
 
-per_hour_wait$datetime <- with(per_hour_wait, ymd(per_hour_wait$Date) + hm(per_hour_wait$arrStart))
 # Create the stacked bar plot
 stacked_avg <- ggplot(per_date, aes(x = weekday, y = value, fill = Status)) +
   geom_bar(stat = "identity") +
@@ -418,8 +432,16 @@ stacked_max <- ggplot(per_date_max, aes(x = weekday, y = value, fill = Status)) 
 grid.arrange(stacked_max, stacked_avg, nrow =2)
 ```
 
-You can see there is not much difference in Max Wait Times but for Average Wait Times, they are slightly longer for Non-US citizens, which is expected. In addition, Wednesday seems to be the business and Sunday is the quietest for arriving in O'Hare.
+You can see there is not much difference in Max Wait Times but for Average Wait Times, they are slightly longer for Non-US citizens, which is expected. In addition, Wednesday and Monday seem to be the busiest and Sunday is the quietest for arriving in O'Hare.
 
+
+##Discussion
+If you are most concerned about flight delay, the best day to fly would be Monday as that had a significantly smaller % of delayed flights and the worst days would be Sunday or Wednesday. This is most useful for domestic flyers as that is the majority of our data and they do not have to take into account wait times in customs.
+
+However, if you are flying internationally, you want to make sure your flight lands after 4pm to ensure the shortest wait times in customs. Furthermore, for flights from Puerto Rico and Finland, American Airlines seems like a reliable/on time service to choose but for some other countries, you may want to consider another airline.
+
+
+## Data Manipulation
 #### Merging the Dataframes
 From our two APIs, we had a dataframe of wait times (by hour) and a week of American Airlines flights into Chicago O'Hare. To merge the two dataframes, we had to find the row within the wait times dataframe where the arrival time (of the AA flight) fit into the hour-long windows of the wait times dataframe.
 
@@ -459,7 +481,7 @@ summary(result)
 
 This 'result' dataframe will be used for all analysis and modeling in the next sections.
 
-## Analysis & Results 
+## Regression Analysis & Results 
 #### Logistic Model
 Because delay is a binary classifier (1 - delay, 0 - no delay), we used a logistic regression model to predict whether a flight would be delayed. A logistic model is able to handle categorical predictors, and because it is a fairly simple model in design, is much more efficient than some other models. One limitations of using this model is that it assumes a linear relationship between our predictors and the log-odds of our outcome variable (delayed). 
 Below is the code for this model. The predictors are: departure airport, departure time estimated variation, and day of week.
