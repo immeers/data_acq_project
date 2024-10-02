@@ -349,19 +349,21 @@ ggplot(aa[aa$international==1,], aes(x=arrHour)) + geom_bar(fill = '#F8766D') +
 The most common hours for both domestic and flights to arrive are around the middle of the day. However, domestic flights peak earlier than international flights starting to pick up at around 7am. This makes sense as to account for time difference, very few international flights (from American Airlines which are generally coming from Europe) land early in the morning in the US.
 
 ```{r}
-international_delay <- aa[aa$deptCountry != 'US',] %>% mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0)) %>% select(CountryName, delayed) %>% group_by(CountryName) %>% summarise(del = sum(delayed)/n())
 
+international_delay <- aa[aa$deptCountry != 'US',] %>% mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0)) %>% select(CountryName, delayed) %>% group_by(CountryName) %>% summarise(del = sum(delayed)/n(), over = ifelse(del >= 0.5, 1, 0))
+international_delay$color <- ifelse(international_delay$over, '#00BA38',"#F8766D")
 
 dow_delay <- aa 
 dow_delay$weekday <- wday(aa$arrDay, label = TRUE)
 dow_delay <- dow_delay%>% mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0)) %>% select(weekday, delayed) %>% group_by(weekday) %>% summarise(del = sum(delayed)/n())
 
 # Plot of delays in international airports
-ggplot(international_delay, aes(x = CountryName, y = del)) +
+ggplot(international_delay, aes(x = CountryName, y = del, fill =color)) +
   geom_bar(stat = "identity") +
   guides(x = guide_axis(angle = 45)) +
   labs(title = 'Delayed International Arrivals', subtitle = '8/1/24 - 8/7/24', x = 'Country', y = '% of Flights Delayed') +
   scale_y_continuous(labels = scales::percent) +
+    guides(fill = "none") +  # Remove the legend
   theme_minimal()
 
 ```
@@ -370,6 +372,7 @@ When looking at delays by country, there is no significant outliers for countrie
 
 ```{r}
 # Plot of delays by dow
+
 dow_delay$color <- ifelse(dow_delay$weekday == 'Mon', "green", ifelse(dow_delay$weekday == 'Wed', "blue", "red"))
 ggplot(dow_delay, aes(x = weekday, y = del, fill = color)) +
   geom_bar(stat = "identity") +
@@ -381,7 +384,7 @@ ggplot(dow_delay, aes(x = weekday, y = del, fill = color)) +
 
 ```
 
-Similar to countries, there are no significant outliers for days of the week that are particularly delayed. However, Monday seems to have significantly more on-time flights than the others days, this could be because it is the start of the week and there are no delays from previous days that have a knock-on effect at this point.
+For all flights, we can see that Wednesday experiences the most delays and Monday seems to have significantly more on-time flights than the others days. This could be because it is the start of the week and there are no delays from previous days that have a knock-on effect at this point.
 
 #### Summary Statistics for Wait Times
 ```{r Summary Statistics}
