@@ -52,10 +52,16 @@ for (i in 1:nrow(aa)) {
     filter(Date == df1$arrDay, 
            arrStartMins <= df1$arrMinutes,
            arrEndMins >= df1$arrMinutes)
-  combined_row <- cbind(df1, matched_row[1, 5:15])
+  #combined_row <- cbind(df1, matched_row[1, 5:15, drop = FALSE])
+  combined_row <- df1
+  if (nrow(matched_row) > 0) {
+    for (j in 5:ncol(matched_row)) {
+      col_name <- colnames(matched_row)[j]  
+      combined_row[[col_name]] <- matched_row[1, j]
+    }
   result <- rbind(result, combined_row)
+  }
 }
-
 
 
 
