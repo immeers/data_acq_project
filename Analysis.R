@@ -63,5 +63,29 @@ for (i in 1:nrow(aa)) {
   }
 }
 
+# Create day of week variable
+result$DayOfWeek <- wday(result$arrDay, label = TRUE)
+
+write.csv(result, "AA_wait_merged.csv", row.names = FALSE)
+
+##################
+# Run Linear Regression on Delay
+wait_mod <- lm(Wait.Times.Average_Wait_Time ~ deptAirport + arrDay + arrMinutes,
+               data = result)
+summary(wait_mod)
+
+us_data <- result %>%
+  filter(deptCountry == 'US')
+us_mod <- lm(US_Average_Wait_Time ~ deptAirport + arrDay + arrMinutes,
+             data = us_data)
+summary(us_mod)
+
+non_us_data <- result %>%
+  filter(deptCountry != 'US')
+non_us_mod <- lm(Non_US_Average_Wait_Times ~ deptAirport + arrDay + arrMinutes,
+             data = non_us_data)
+summary(non_us_mod)
+
+
 
 
