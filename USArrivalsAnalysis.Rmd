@@ -561,7 +561,10 @@ In our binary model, we predicted whether a flight will be delayed using departu
 test_data <- data.frame(deptAirport = c('LHR'), DayOfWeek = c('Wed'), outGateVarEst = c(-9))
 predicted_prob_test <- predict(delay_mod, type = "response", newdata = test_data)
 predicted_class_test <- ifelse(predicted_prob_test > 0.5, 1, 0)
-predicted_class_test[1]
+
+actual_delay = 0
+table(Actual = actual_delay, Predicted = predicted_class_test)
+#predicted_class_test[1]
 ```
 
 
