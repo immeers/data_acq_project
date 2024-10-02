@@ -310,11 +310,23 @@ With this API, we get a list of wait times for the desired airport within the da
 Each request (and associated json) had 100 rows. Each row contained 17 elements: carrier, serviceSuffix, flightNumber, flightType, departure, arrival, elapsedTime, cargoTonnage, aircraftType, serviceType, segmentInfo, distance, codeshare, scheduleInstanceKey, statusKey, and statusDetails. Within departure, arrival, distance, and statusDetails were further information about the flight. Cleaning the data required finding the elements that we wanted to use in our analysis and making them into a data frame. Most data points could be put directly into the data frame without manipulation. However, the connecting flights column was created with a function that extracted the connecting flights, if they existed. Also some fields did not exist in the request so we needed validation to enter NA in order for the data frame to still be created.
 
 ##Exploratory Analysis
+```{r}
+library(dplyr)
+library(lubridate)
+library(stringr)
+library(hms)
+library(caret)
+library(tidyr)
+library(car)
+library(ggplot2)
+library(countrycode)
+library(gridExtra)
+library(lubridate)
+```
+
 
 #### Summary Statistics for Flights
 ```{r Summary Statistics1}
-library(ggplot2)
-library(countrycode)
 summary(aa)
 aa$CountryName <- countrycode(aa$deptCountry, origin = "iso2c", destination = "country.name")
 
@@ -357,7 +369,6 @@ ggplot(international_delay, aes(x = CountryName, y = del)) +
 When looking at delays by country, there is no significant outliers for countries that are consistently delayed. However, we can see that in this period there were no delayed flights from PR or Finland. This may be useful going forward to use country as a feature to predict delay. However, it would be more useful if we could compare different airlines per country as then people could make an informed choice on which airline to choose based on delays.
 
 ```{r}
-
 # Plot of delays by dow
 dow_delay$color <- ifelse(dow_delay$weekday == 'Mon', "green", ifelse(dow_delay$weekday == 'Wed', "blue", "red"))
 ggplot(dow_delay, aes(x = weekday, y = del, fill = color)) +
@@ -374,12 +385,6 @@ Similar to countries, there are no significant outliers for days of the week tha
 
 #### Summary Statistics for Wait Times
 ```{r Summary Statistics}
-library(gridExtra)
-library(dplyr)
-library(lubridate)
-library(ggplot2)
-library(tidyr)
-
 summary(wait)
 
 per_date <- wait %>% group_by(Date) %>% summarise(Avg_US =  mean(US_Average_Wait_Time), Avg_NonUS = mean(Non_US_Average_Wait_Times)) %>% pivot_longer(cols = c(Avg_US, Avg_NonUS), names_to = 'Status')
@@ -410,7 +415,6 @@ There are two explanations for why this data is not as expected.
 2. Number of flights might not be exactly proportional to wait times as certain international citizens take longer to get through customs than others. For example, a large number of flights from Ireland may not take too long to get through border control as they have pre-clearance in Ireland. However, a singular flight from Australia or China might take a lot longer to get through customs as the US has different/more strict immigration policies.
 
 ```{r}
-
 # Create the stacked bar plot
 stacked_avg <- ggplot(per_date, aes(x = weekday, y = value, fill = Status)) +
   geom_bar(stat = "identity") +
@@ -486,7 +490,6 @@ This 'result' dataframe will be used for all analysis and modeling in the next s
 Because delay is a binary classifier (1 - delay, 0 - no delay), we used a logistic regression model to predict whether a flight would be delayed. A logistic model is able to handle categorical predictors, and because it is a fairly simple model in design, is much more efficient than some other models. One limitations of using this model is that it assumes a linear relationship between our predictors and the log-odds of our outcome variable (delayed). 
 Below is the code for this model. The predictors are: departure airport, departure time estimated variation, and day of week.
 ```{r Logistic Delay Model}
-
 no_na <- na.omit(result)
 delay_mod <- glm(delayed ~ deptAirport + DayOfWeek + outGateVarEst, 
              data = no_na, 
@@ -506,10 +509,9 @@ Because our sensitivity and specificity values were high, our model was fairly g
 #### Linear Models
 We then ran some linear models to predict the wait time once at Chicago O'Hare airport (after landing). A linear model can use both factor (categorical) and numerical predictors, and it creates a simple, understandable model for the outcome variable. Using a linear model means that we assume a linear relationship between our predictors and outcome variable (wait time in minutes). When analyzing these models, there are several important metrics. The r-squared value shows the strength of our model to predict our outcome variables. This value ranges from 0 - 1, with a value of 1 representing a model that predicts perfectly. Looking at our predictors, the intercept represents the increase/decrease in our outcome variable (wait time) for a change of one unit in the specific predictor. The significance codes of these predictors reveal how well they serve as predictors. Our goal is the lowest level of significance code (0.001), meaning that the variable is a strong predictor in our model.
 
-The predictors for all models were: day of week, arrival time, and in-gate variation (from original expected time of arrival). The outcome variables for the 3 models were: average wait time, US citizen average wait time, and Non-US citizen average wait time.
+The predictors for all models were: day of week and arrival time. The outcome variables for the 3 models were: average wait time, US citizen average wait time, and Non-US citizen average wait time.
 
 ```{r Wait Model 1}
-library(car)
 wait_mod <- lm(Wait.Times.Average_Wait_Time ~ DayOfWeek + arrMinutes,
                data = result)
 summary(wait_mod)
@@ -517,8 +519,8 @@ crPlots(wait_mod)
 ```
 
 In our first wait model, we predict overall average wait time (for both US and Non-US citizens). Our model has an adjusted r-squared value of 0.4453, meaning that this model is not the greatest in terms of predicting overall wait time. Our model has two significant predictors: day of week and arrival time. 
-  - Arrival time (in minutes) is significant at the 0.001 level. It has a slight negative relationship with wait time: adding one minute to arrival time (later in the day) decreases the average wait time by 0.033 minutes.
-  - Because day of week is a categorical variable, we can analyze the significance of the different levels. Sunday, Monday, and Wednesday are significant at the highest level (0.001). All have a positive relationship with wait time. If the flight occurs on a Sunday, the wait time increases by 3 minutes. If the flight occurs on a Monday, the wait time increases by 6 minutes. Finally, if the flight occurs on a Wednesday, the wait time increases by 24 minutes.
+Arrival time (in minutes) is significant at the 0.001 level. It has a slight negative relationship with wait time: adding one minute to arrival time (later in the day) decreases the average wait time by 0.033 minutes.
+Because day of week is a categorical variable, we can analyze the significance of the different levels. Sunday, Monday, and Wednesday are significant at the highest level (0.001). All have a positive relationship with wait time. If the flight occurs on a Sunday, the wait time increases by -11 minutes. If the flight occurs on a Monday, the wait time increases by 5 minutes. Finally, if the flight occurs on a Wednesday, the wait time increases by 25 minutes.
   
 The next two models subset our original dataset. The first looks at only flights departing from within the US and predicts average wait time for a US citizen. The second model subsets to only non-US departing airports, and predicts average wait time for a Non-US citizen.
 
@@ -531,18 +533,18 @@ summary(us_mod)
 crPlots(us_mod)
 ```
 
-For this US citizen model, we see an adjusted r-squared of 0.4692, meaning that our model is not the greatest predictor for US wait time. Once again, arrival time is significant at the 0.001 level, and it has a slight negative relationship with US citizen wait time. An increase in one minute in the arrival time decreases the wait time by 0.03 minutes. In terms of day of the week - Sunday, Tuesday, Wednesday, and Thursday are significant at the 0.001 level. Sunday, Tuesday, and Thursday have a negative relationship with wait time. On Sunday, the wait time decreases by 11 minutes; on Tuesday, the wait time decreases by 4 minutes; on Thursday, the wait time decreases by 6 minutes. Wednesday has a positive relationship with wait time, as it increases wait time by 19 minutes. 
+For this US citizen model, we see an adjusted r-squared of 0.4692, meaning that our model is not the greatest predictor for US wait time. Once again, arrival time is significant at the 0.001 level, and it has a slight negative relationship with US citizen wait time. An increase in one minute in the arrival time decreases the wait time by 0.03 minutes. In terms of day of the week - Sunday, Tuesday, Wednesday, and Thursday are significant at the 0.001 level. Sunday, Tuesday, and Thursday have a negative relationship with wait time. On Sunday, the wait time decreases by 11 minutes; on Tuesday, the wait time decreases by 4 minutes; on Thursday, the wait time decreases by 6 minutes. Wednesday has a positive relationship with wait time, as it increases wait time by 20 minutes. 
 
 ```{r Wait Model 3}
 non_us_data <- result %>%
   filter(deptCountry != 'US')
-non_us_mod <- lm(Non_US_Average_Wait_Times ~ DayOfWeek + arrMinutes + inGateVarMins,
+non_us_mod <- lm(Non_US_Average_Wait_Times ~ DayOfWeek + arrMinutes,
              data = non_us_data)
 summary(non_us_mod)
 crPlots(non_us_mod)
 ```
 
-In this model, our outcome variable is the average wait time for Non-US citizens. We see an adjusted r-squared of 0.504, meaning that our model is not the best at prediction. However, we see some significant variables. Like in our previous models, arrival time is significant at the 0.001 level, and it once again has a slight negative relationship with wait time. In terms of days of the week, only Monday and Wednesday are significant at the 0.001 level. Both had a positive relationship with wait time. Monday increases the wait time by 29 minutes, and Wednesday increases the wait time by 44 minutes.
+In this model, our outcome variable is the average wait time for Non-US citizens. We see an adjusted r-squared of 0.504, meaning that our model is not the best at prediction. However, we see some significant variables. Like in our previous models, arrival time is significant at the 0.001 level, and it once again has a slight negative relationship with wait time. In terms of days of the week, only Monday and Wednesday are significant at the 0.001 level. Both had a positive relationship with wait time. Monday increases the wait time by 27 minutes, and Wednesday increases the wait time by 43 minutes.
 In all our linear models, in-gate variation was not a significant variable. Next steps would include running models with other variables instead of in-gate variation.
 
 All of our models provide actionable insights for travelers, which we will explain in the following section.
@@ -553,7 +555,10 @@ With our data analysis, we hoped to be able to predict delays and airport wait t
 In our binary model, we predicted whether a flight will be delayed using departure airport, departure gate estimated variation, and the day of the week. Our model had a 85% accuracy, meaning that this model would be useful to predict a flight's delay status.
 
 ```{r Prediction on Flight}
-
+test_data <- data.frame(deptAirport = c('LHR'), DayOfWeek = c('Wed'), outGateVarEst = c(-9))
+predicted_prob_test <- predict(delay_mod, type = "response", newdata = test_data)
+predicted_class_test <- ifelse(predicted_prob_test > 0.5, 1, 0)
+predicted_class_test[1]
 ```
 
 
@@ -561,16 +566,19 @@ We then ran three linear models, all of which provided similar insights about wa
 All our linear models also reveal information about wait time related to the day of the flight. For all people, Wednesday is the worst day to fly, as it increases the wait time by about 30 minutes. Flying on a Monday also leads to a longer wait time, although not as lengthy as a Wednesday. There were several days that shorten wait time: Sunday, Tuesday, and Thursday (for US travelers). We would recommend people fly on Sunday, Tuesday, and Thursday, and do not fly on Monday or Wednesday.
 Below is a summary of these outcomes for day of the week:
 1. All travelers:
-  - Monday: +6 minutes
-  - Wednesday: +24 minutes
+  - Sunday: -11 minutes
+  - Monday: +5 minutes
+  - Wednesday: +25 minutes
+  
 2. US travelers:
-  - Wednesday: +19 minutes
+  - Wednesday: +20 minutes
   - Sunday: -11 minutes
   - Tuesday: -4 minutes
   - Thursday: -6 minutes
+  
 3. Non-US travelers:
-  - Monday: +29 minutes
-  - Wednesday: +44 minutes
+  - Monday: +27 minutes
+  - Wednesday: +43 minutes
 
 Our main data limitations is the time period of the data. With our free API, we could only do a limited number of requests; using two accounts only allowed for a week's worth of data. To further validate our analyses, we would want to gather many more weeks of data and run our models again. Additionally, we would want to gather data on more than one airline and analysis waits/delays for these different airlines.
 
