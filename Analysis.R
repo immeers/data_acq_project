@@ -4,6 +4,7 @@ library(stringr)
 library(hms)
 library(caret)
 library(tidyr)
+library(car)
 
 ## American Airlines (ORD) Data
 ## Append CSVs
@@ -65,10 +66,27 @@ for (i in 1:nrow(aa)) {
   }
 }
 
-# Create day of week variable
+# Create other needed variables
 result$DayOfWeek <- wday(result$arrDay, label = TRUE)
 result <- result %>% 
   mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0))
+
+to_numeric <- function(time_str) {
+  if (is.na(time_str)) { return(NA)
+  } else{
+    negative <- ifelse(substr(time_str, 1, 1) == "-", 1, 0)
+    time_str <- gsub("-", "", time_str)
+    parts <- strsplit(time_str, ":")[[1]]
+    hours <- as.numeric(parts[1])
+    minutes <- as.numeric(parts[2])
+    total_minutes <- hours * 60 + minutes
+    if (negative == 1) {
+      total_minutes <- -total_minutes
+    }
+    return(total_minutes)
+  }
+}
+result$inGateVarMins <- sapply(result$actualInGateVariation, to_numeric)
 
 write.csv(result, "AA_wait_merged.csv", row.names = FALSE)
 
@@ -84,21 +102,24 @@ table(Actual = result$delayed, Predicted = predicted_class)
 confusionMatrix(as.factor(predicted_class), as.factor(result$delayed))
 
 # Linear Models to Predict Wait Times
-wait_mod <- lm(Wait.Times.Average_Wait_Time ~ deptAirport + DayOfWeek + arrMinutes + delayed,
-               data = result)
+wait_mod <- lm(Wait.Times.Average_Wait_Time ~ DayOfWeek + arrMinutes + inGateVarMins,
+               data = results)
 summary(wait_mod)
+crPlots(wait_mod)
 
 us_data <- result %>%
   filter(deptCountry == 'US')
-us_mod <- lm(US_Average_Wait_Time ~ deptAirport + arrDay + arrMinutes + delayed,
+us_mod <- lm(US_Average_Wait_Time ~ arrDay + arrMinutes + delayed,
              data = us_data)
 summary(us_mod)
+crPlots(us_mod)
 
 non_us_data <- result %>%
   filter(deptCountry != 'US')
-non_us_mod <- lm(Non_US_Average_Wait_Times ~ deptAirport + arrDay + arrMinutes + delayed,
+non_us_mod <- lm(Non_US_Average_Wait_Times ~ arrDay + arrMinutes + delayed,
              data = non_us_data)
 summary(non_us_mod)
+crPlots(non_us_mod)
 
 ## Clustering to Compare Airports
 by_airport <- results %>%

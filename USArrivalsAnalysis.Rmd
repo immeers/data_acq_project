@@ -13,9 +13,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-## Topic
-We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month in order to do so. The sources we will use:
-
 ## Introduction
 #### Topic
 We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month. To do so, we will use:
@@ -23,7 +20,6 @@ We want to understand airport arrival wait patterns by predicting future flight 
 1. A Form API of wait times for customs from international flights arriving into Chicago O'Hare, one of the major US airports.
    - https://awt.cbp.gov/
    
-
 
 2. A REST API of historical flight arrivals data
     - https://rapidapi.com/oag-oag-default/api/flight-info-api
@@ -334,7 +330,7 @@ With this API, we get a list of wait times for the desired airport within the da
 #### The REST API data from: https://rapidapi.com/oag-oag-default/api/flight-info-api
 Each request (and associated json) had 100 rows. Each row contained 17 elements: carrier, serviceSuffix, flightNumber, flightType, departure, arrival, elapsedTime, cargoTonnage, aircraftType, serviceType, segmentInfo, distance, codeshare, scheduleInstanceKey, statusKey, and statusDetails. Within departure, arrival, distance, and statusDetails were further information about the flight. Cleaning the data required finding the elements that we wanted to use in our analysis and making them into a data frame. Most data points could be put directly into the data frame without manipulation. However, the connecting flights column was created with a function that extracted the connecting flights, if they existed. Also some fields did not exist in the request so we needed validation to enter NA in order for the data frame to still be created.
 
-##Summary Statistics for Flights
+#### Summary Statistics for Flights
 ```{r Summary Statistics1}
 library(ggplot2)
 library(countrycode)
@@ -387,7 +383,7 @@ ggplot(dow_delay, aes(x = weekday, y = del)) +
 
 Similar to countries, there are no significant outliers for days of the week that are particularly delayed. However, Monday seems to have significantly more on-time flights than the others days, this could be because it is the start of the week and there are no delays from previous days that have a knock-on effect at this point.
 
-##Summary Statistics for Wait Times
+#### Summary Statistics for Wait Times
 ```{r Summary Statistics}
 library(gridExtra)
 library(dplyr)
@@ -442,9 +438,10 @@ stacked_max <- ggplot(per_date_max, aes(x = weekday, y = value, fill = Status)) 
 
 grid.arrange(stacked_max, stacked_avg, nrow =2)
 ```
+
 You can see there is not much difference in Max Wait Times but for Average Wait Times, they are slightly longer for Non-US citizens, which is expected. In addition, Wednesday seems to be the business and Sunday is the quietest for arriving in O'Hare.
 
-## Merging the Dataframes
+#### Merging the Dataframes
 From our two APIs, we had a dataframe of wait times (by hour) and a week of American Airlines flights into Chicago O'Hare. To merge the two dataframes, we had to find the row within the wait times dataframe where the arrival time (of the AA flight) fit into the hour-long windows of the wait times dataframe.
 
 We began by cleaning both the AA and wait dataframes.
@@ -476,13 +473,15 @@ Within this dataframe merge, NAs presented some challenges. Whenever an NA was p
 
 We then saved this final dataframe as a csv file. 
 ```{r Results CSV}
-results <- read.csv('AA_wait_merged.csv')
-head(results)
+result <- read.csv('AA_wait_merged.csv')
+head(result)
+summary(result)
 ```
 
+This 'result' dataframe will be used for all analysis and modeling in the next sections.
 
 ## Analysis & Results 
-### Logistic Model
+#### Logistic Model
 Because delay is a binary classifier (1 - delay, 0 - no delay), we used a logistic regression model to predict whether a flight would be delayed. A logistic model is able to handle categorical predictors, and because it is a fairly simple model in design, is much more efficient than some other models. One limitations of using this model is that it assumes a linear relationship between our predictors and the log-odds of our outcome variable (delayed). 
 Below is the code for this model. The predictors are: departure airport, arrival time, and day of week.
 ```{r Logistic Delay Model}
@@ -501,7 +500,37 @@ The sensitivity and specificity values also reveal important model characteristi
 
 Because our sensitivity and specificity values were almost exactly alike, our model was fairly good at predicting both classes of delay. It was not skewed toward one factor or another; i.e. this model could be useful in predicting whether a flight will be delayed.
 
-### Linear Models
+#### Linear Models
+We then ran some linear models to predict the wait time once at Chicago O'Hare airport (after landing). 
+The predictors for all models were: day of week, arrival time, and in-gate variation (from original expected time of arrival). The outcome variables for the 3 models were: average wait time, US citizen average wait time, and Non-US citizen average wait time.
+
+```{r Wait Model 1}
+library(car)
+wait_mod <- lm(Wait.Times.Average_Wait_Time ~ DayOfWeek + arrMinutes + inGateVarMins,
+               data = results)
+summary(wait_mod)
+crPlots(wait_mod)
+```
+
+```{r Wait Model 2}
+us_data <- result %>%
+  filter(deptCountry == 'US')
+us_mod <- lm(US_Average_Wait_Time ~ arrDay + arrMinutes + delayed,
+             data = us_data)
+summary(us_mod)
+crPlots(us_mod)
+```
+
+```{r Wait Model 3}
+non_us_data <- result %>%
+  filter(deptCountry != 'US')
+non_us_mod <- lm(Non_US_Average_Wait_Times ~ arrDay + arrMinutes + delayed,
+             data = non_us_data)
+summary(non_us_mod)
+crPlots(non_us_mod)
+```
+
+
 
 ## Discussion 
 Analyze the results in the context of the research question or problem that the data was intended to address. Discuss any limitations of the data, such as potential sources of bias or confounding variables.
