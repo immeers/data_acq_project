@@ -2,6 +2,7 @@ library(dplyr)
 library(lubridate)
 library(stringr)
 library(hms)
+library(caret)
 
 ## American Airlines (ORD) Data
 ## Append CSVs
@@ -72,18 +73,17 @@ write.csv(result, "AA_wait_merged.csv", row.names = FALSE)
 
 ##################
 # Logistic Regression to Predict Delay (based on airport, day, and time of day)
-delay_mod <- glm(delayed ~ deptAirport + arrDay + arrMinutes, 
+delay_mod <- glm(delayed ~ deptAirport + arrMinutes + DayOfWeek, 
              data = result, 
              family = binomial)
 
 predicted_prob <- predict(delay_mod, type = "response")
 predicted_class <- ifelse(predicted_prob > 0.5, 1, 0)
-table(Actual = delay_df$delayed, Predicted = predicted_class)
-accuracy <- mean(delay_df$delayed == predicted_class)
-print(paste("Accuracy:", round(accuracy, 4)))
+table(Actual = result$delayed, Predicted = predicted_class)
+confusionMatrix(as.factor(predicted_class), as.factor(result$delayed))
 
 # Linear Models to Predict Wait Times
-wait_mod <- lm(Wait.Times.Average_Wait_Time ~ deptAirport + arrDay + arrMinutes + delayed,
+wait_mod <- lm(Wait.Times.Average_Wait_Time ~ deptAirport + DayOfWeek + arrMinutes + delayed,
                data = result)
 summary(wait_mod)
 

@@ -443,3 +443,74 @@ stacked_max <- ggplot(per_date_max, aes(x = weekday, y = value, fill = Status)) 
 grid.arrange(stacked_max, stacked_avg, nrow =2)
 ```
 You can see there is not much difference in Max Wait Times but for Average Wait Times, they are slightly longer for Non-US citizens, which is expected. In addition, Wednesday seems to be the business and Sunday is the quietest for arriving in O'Hare.
+
+## Merging the Dataframes
+From our two APIs, we had a dataframe of wait times (by hour) and a week of American Airlines flights into Chicago O'Hare. To merge the two dataframes, we had to find the row within the wait times dataframe where the arrival time (of the AA flight) fit into the hour-long windows of the wait times dataframe.
+
+We began by cleaning both the AA and wait dataframes.
+  - Converting the date column to a date
+  - Splitting the hour-long windows into start and end hours (ex: 0000-0100 into 00:00, 01:00)
+  - Converting all times into total minutes for easy comparison.
+  
+Here is the code for the merge. 
+```{r Merge DFs}
+result <- data.frame()
+for (i in 1:nrow(aa)) {
+  df1 <- aa[i,]
+  matched_row <- wait %>%
+    filter(Date == df1$arrDay, 
+           arrStartMins <= df1$arrMinutes,
+           arrEndMins >= df1$arrMinutes)
+  combined_row <- df1
+  if (nrow(matched_row) > 0) {
+    for (j in 5:ncol(matched_row)) {
+      col_name <- colnames(matched_row)[j]  
+      combined_row[[col_name]] <- matched_row[1, j]
+    }
+  result <- rbind(result, combined_row)
+  }
+}
+```
+
+Within this dataframe merge, NAs presented some challenges. Whenever an NA was present in the current row of the AA flights dataframe, all the new values to be merged resulted in NA when using column bind (cbind). Our solution was to introduce another if statement that binded these two pieces to 'combined_row' separately.
+
+We then saved this final dataframe as a csv file. 
+```{r Results CSV}
+results <- read.csv('AA_wait_merged.csv')
+head(results)
+```
+
+
+## Analysis & Results 
+### Logistic Model
+Because delay is a binary classifier (1 - delay, 0 - no delay), we used a logistic regression model to predict whether a flight would be delayed. A logistic model is able to handle categorical predictors, and because it is a fairly simple model in design, is much more efficient than some other models. One limitations of using this model is that it assumes a linear relationship between our predictors and the log-odds of our outcome variable (delayed). 
+Below is the code for this model. The predictors are: departure airport, arrival time, and day of week.
+```{r Logistic Delay Model}
+delay_mod <- glm(delayed ~ deptAirport + arrMinutes + DayOfWeek, 
+             data = result, 
+             family = binomial)
+
+predicted_prob <- predict(delay_mod, type = "response")
+predicted_class <- ifelse(predicted_prob > 0.5, 1, 0)
+table(Actual = result$delayed, Predicted = predicted_class)
+confusionMatrix(as.factor(predicted_class), as.factor(result$delayed))
+```
+
+There are three key takeaways from this model. Overall, we see a balanced accuracy of 73%, meaning that the predictors we chose are good predictors of having a delay.
+The sensitivity and specificity values also reveal important model characteristics. The 'positive' class in our model is 0 (no delay), so that is the class to which our sensitivity score explains. Our model's sensitivity is 0.7279, meaning that the model correctly identified 73% of cases where there was no delay. The other 27% of no-delay cases were incorrectly labeled as delay. Our model's specificity is .73 as well, meaning that the model correctly identified 73% of cases where there was a delay. The other 26% of delay cases were misclassified as no delay. 
+
+Because our sensitivity and specificity values were almost exactly alike, our model was fairly good at predicting both classes of delay. It was not skewed toward one factor or another; i.e. this model could be useful in predicting whether a flight will be delayed.
+
+### Linear Models
+
+## Discussion 
+Analyze the results in the context of the research question or problem that the data was intended to address. Discuss any limitations of the data, such as potential sources of bias or confounding variables.
+
+## Conclusion and Future Work
+Summarize the main findings of the data acquisition process and their implications. Provide recommendations for future data collection or analysis if appropriate.
+
+## References
+Include a list of any references cited in the report, such as research papers, technical reports, websites, API documentation, news articles, etc. that informed the data acquisition process or any part of your project.
+
+## Appendices
+Include any additional information that is relevant to the project but was not included in the main report, such as extra graphs or tables.
