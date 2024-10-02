@@ -486,7 +486,6 @@ This 'result' dataframe will be used for all analysis and modeling in the next s
 Because delay is a binary classifier (1 - delay, 0 - no delay), we used a logistic regression model to predict whether a flight would be delayed. A logistic model is able to handle categorical predictors, and because it is a fairly simple model in design, is much more efficient than some other models. One limitations of using this model is that it assumes a linear relationship between our predictors and the log-odds of our outcome variable (delayed). 
 Below is the code for this model. The predictors are: departure airport, departure time estimated variation, and day of week.
 ```{r Logistic Delay Model}
-result$outGateVarEst <- sapply(result$estimatedOutGateVariation, to_numeric)
 
 no_na <- na.omit(result)
 delay_mod <- glm(delayed ~ deptAirport + DayOfWeek + outGateVarEst, 
@@ -511,8 +510,8 @@ The predictors for all models were: day of week, arrival time, and in-gate varia
 
 ```{r Wait Model 1}
 library(car)
-wait_mod <- lm(Wait.Times.Average_Wait_Time ~ DayOfWeek + arrMinutes + inGateVarMins,
-               data = results)
+wait_mod <- lm(Wait.Times.Average_Wait_Time ~ DayOfWeek + arrMinutes,
+               data = result)
 summary(wait_mod)
 crPlots(wait_mod)
 ```
@@ -526,7 +525,7 @@ The next two models subset our original dataset. The first looks at only flights
 ```{r Wait Model 2}
 us_data <- result %>%
   filter(deptCountry == 'US')
-us_mod <- lm(US_Average_Wait_Time ~ DayOfWeek + arrMinutes + inGateVarMins,
+us_mod <- lm(US_Average_Wait_Time ~ DayOfWeek + arrMinutes,
              data = us_data)
 summary(us_mod)
 crPlots(us_mod)
