@@ -44,21 +44,18 @@ wait <- wait %>%
   mutate(arrStartMins = as.numeric(sub(":.*", "", arrStart)) * 60 + as.numeric(sub(".*:", "", arrStart)),
          arrEndMins = as.numeric(sub(":.*", "", arrEnd)) * 60 + as.numeric(sub(".*:", "", arrEnd)))
 # if the arrival time is between arrStart, and arrEnd, take that row of data and merge
-assign_hour <- function(row, wait, colName) {
+
+result <- data.frame()
+for (i in 1:nrow(aa)) {
+  df1 <- aa[i,]
   matched_row <- wait %>%
-    filter(Date == row[['arrDay']], 
-           arrStartMins <= row[['arrMinutes']],
-           arrEndMins >= row[['arrMinutes']])
-  
-  if (nrow(matched_row) > 0) {
-    row[[colName]] <<- matched_row[[colName]]
-  } else {
-    row[[colName]] <<- 0
-  }
+    filter(Date == df1$arrDay, 
+           arrStartMins <= df1$arrMinutes,
+           arrEndMins >= df1$arrMinutes)
+  combined_row <- cbind(df1, matched_row[1, 5:15])
+  result <- rbind(result, combined_row)
 }
 
-df <- aa
-df$US_Average_Wait_Time <- apply(df, 1, assign_hour(wait, 'US_Average_Wait_Time'))
-df$US_Max_Wait_Time <- NA
+
 
 
