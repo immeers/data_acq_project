@@ -18,7 +18,7 @@ We want to understand airport arrival wait patterns by predicting future flight 
 
 ## Introduction
 #### Topic
-We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month. We predict roughly . To do so, we will use:
+We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month. To do so, we will use:
 
 1. A Form API of wait times for customs from international flights arriving into Chicago O'Hare, one of the major US airports.
    - https://awt.cbp.gov/

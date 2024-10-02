@@ -65,24 +65,37 @@ for (i in 1:nrow(aa)) {
 
 # Create day of week variable
 result$DayOfWeek <- wday(result$arrDay, label = TRUE)
+result <- result %>% 
+  mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0))
 
 write.csv(result, "AA_wait_merged.csv", row.names = FALSE)
 
 ##################
-# Run Linear Regression on Delay
-wait_mod <- lm(Wait.Times.Average_Wait_Time ~ deptAirport + arrDay + arrMinutes,
+# Logistic Regression to Predict Delay (based on airport, day, and time of day)
+delay_mod <- glm(delayed ~ deptAirport + arrDay + arrMinutes, 
+             data = result, 
+             family = binomial)
+
+predicted_prob <- predict(delay_mod, type = "response")
+predicted_class <- ifelse(predicted_prob > 0.5, 1, 0)
+table(Actual = delay_df$delayed, Predicted = predicted_class)
+accuracy <- mean(delay_df$delayed == predicted_class)
+print(paste("Accuracy:", round(accuracy, 4)))
+
+# Linear Models to Predict Wait Times
+wait_mod <- lm(Wait.Times.Average_Wait_Time ~ deptAirport + arrDay + arrMinutes + delayed,
                data = result)
 summary(wait_mod)
 
 us_data <- result %>%
   filter(deptCountry == 'US')
-us_mod <- lm(US_Average_Wait_Time ~ deptAirport + arrDay + arrMinutes,
+us_mod <- lm(US_Average_Wait_Time ~ deptAirport + arrDay + arrMinutes + delayed,
              data = us_data)
 summary(us_mod)
 
 non_us_data <- result %>%
   filter(deptCountry != 'US')
-non_us_mod <- lm(Non_US_Average_Wait_Times ~ deptAirport + arrDay + arrMinutes,
+non_us_mod <- lm(Non_US_Average_Wait_Times ~ deptAirport + arrDay + arrMinutes + delayed,
              data = non_us_data)
 summary(non_us_mod)
 
