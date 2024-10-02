@@ -192,3 +192,6 @@ for (j in 1:49){
 }
 
 }
+
+load('APITry1.Rdata')
+list_data <- jsonlite::flatten(json1$data)

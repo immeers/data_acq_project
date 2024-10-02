@@ -20,6 +20,8 @@ aa <- aa %>%
   filter(deptAirport != 'ORD')
 aa$arrDay <- as.Date(aa$arrDay)
 
+write.csv(aa, 'AmericanAirlines_all.csv')
+
 ## Get Wait Times
 wait <- read.csv('waitTimes1.csv')
 colnames(wait)[c(6,8)] <- c('US_Max_Wait_Time', 'Non_US_Max_Wait_Time')

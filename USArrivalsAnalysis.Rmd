@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 #### Topic
-We want to understand airport arrival wait patterns by predicting future flight arrival times, the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month. To do so, we will use:
+We want to understand airport arrival wait patterns by predicting the likelihood of delays and the time spent waiting in customs/passport control. We want to get all flight arrivals and custom wait times from Chicago O'Hare Airport from the last month. To do so, we will use:
 
 1. A Form API of wait times for customs from international flights arriving into Chicago O'Hare, one of the major US airports.
    - https://awt.cbp.gov/
@@ -26,15 +26,14 @@ We want to understand airport arrival wait patterns by predicting future flight 
     Endpoint: GET /status - Get flight status by specifying arrival date range and arrivals airport
 
 
-Our motivation for pursuing this problem is our experiences with international travel. We understand the stress of making connections and wasting time walking around new airports during travel. We chose Chicago O'Hare as it is our local internetional airport and one of the major airports within the US.
+Our motivation for pursuing this problem is our experiences with international travel. We understand the stress of making connections and wasting time walking around new airports during travel. We chose Chicago O'Hare as it is our local international airport and one of the major airports within the US.
 
 #### Significance
 This research problem is significant as oftentimes, flights take longer than expected or airports have unexpected delays. We want to be able to minimize wasted time in the airport and understand the likelihood of making a connecting flight based on historical flight data from a number of different airports. 
 
-When flying internationally into the United States, this information can be very useful to help plan one's travel. Based on their predicted total flight time, travelers can select connecting flights that minimize wasted time waiting around in the airport and allow for adequate times between flights. This prediction information will also help travelers decide what time to book taxis or hire cars, or decide what times to avoid because of business.
+When flying internationally into the United States, this information can be very useful to help plan one's travel. Based on their predicted total wait and delay time, travelers can select connecting flights that minimize wasted time waiting around in the airport and allow for adequate times between flights. This prediction information will also help travelers decide what time to book taxis or hire cars, or decide what times to avoid because of business.
 
 ## Data Acquisition Process
-Describe the methodology used to collect the data. This should include the tools used, the sampling method, and the sample size, the target population. Present any challenges or issues you found. Be thorough. 
 
 #### The Form API data from: https://awt.cbp.gov/.
 For this API, we are submitting 3 form elements: airportID, start date, and end date. Within each request, we added a short wait time to ensure we are not overloading the API with requests.
@@ -67,11 +66,11 @@ These will all be useful features to predict the future flight arrival informati
 
 ### Challenges
 
-Originally, we wanted to get at least a year's worth of data but when we calculated the number of flights per day (up to 1000) and the page limit of 100, we realized this world take a huge amount of requests far beyond the usage limit for this API. We are only using a Basic Plan, which is 50 total requests with a maximum of 10 per min. 
+Originally, we wanted to get at least a year's worth of data but when we calculated the number of flights per day (up to 1000) and the page limit of 100, we realized this world take a huge amount of requests far beyond the usage limit for this API. We are only using a Basic Plan, which is 50 total requests with a maximum of 10 per minute. 
 
-We estimated that using 2 x API Keys we would roughly be able to obtain a week's worth of data. However, upon implementation we realized that there was a row for every code-share, meaning some flights that were operated by an alliance of airlines had 7 different flight codes so 7 rows describing the same physical flight.
+We estimated that by using 2 x API Keys, we would roughly be able to obtain a week's worth of data. However, upon implementation we realized that there was a row for every code-share, meaning some flights that were operated by an alliance of airlines had 7 different flight codes so 7 rows describing the same physical flight.
 
-Finally, we decided on also filtering our request to include just American Airlines this way we avoid the code-share issue and could still get enough data to analyze over time.
+Finally, we decided on also filtering our request to include just American Airlines this way we avoid the code-share issue and could still get enough data to analyze over time. We were able to get a week's worth of flight data into Chicago O'Hare and via American Airlines.
 
 ### Implementation
 
@@ -260,7 +259,7 @@ connections <- function(stops, stops_list) {
 ## Airport Wait Times
 We obtained this data using FORM request on the https://awt.cbp.gov/ website. At first, we searched the page html to find the appropriate ID for Chicago O'Hare Aiport then we specified the date range for wait time collection. This will be performed after the flight API request as this will guide how many days we need to get wait times for.
 
-###Implementation
+#### Implementation
 Below is our R code, which submits a HTML form and returns a HTML table to clean into a data frame.
 
 ```{r Airport Wait Times, eval = FALSE}
@@ -301,7 +300,6 @@ head(wait_data)
 
 
 ## Data Description
-Describe the structure of the dataset that was acquired and any cleaning or preprocessing that was performed on the data to prepare it for analysis. Describe interesting data points that merit attention and some summary statistics to give a general overview of your data.
 
 #### The Form API data from: https://awt.cbp.gov/.
 With this API, we get a list of wait times for the desired airport within the date range we provide. This dataset includes average and max wait times for US, Non-US citizens, and all people. 
@@ -327,20 +325,22 @@ library(lubridate)
 
 #### Summary Statistics for Flights
 ```{r Summary Statistics1}
+aa <- read.csv('AmericanAirlines_all.csv')
 summary(aa)
 aa$CountryName <- countrycode(aa$deptCountry, origin = "iso2c", destination = "country.name")
 
 
 # Plot of most common hours
-arrivals$arrHour <- as.numeric(format(strptime(aa$arrTime, format = "%H:%M"), "%H"))
-arrivals$international <- ifelse(aa$deptAirport !=  'US', 1,0)
-arrivals <- arrivals %>%
+aa$arrHour <- as.numeric(format(strptime(aa$arrTime, format = "%H:%M"), "%H"))
+aa$international <- ifelse(aa$deptAirport !=  'US', 1,0)
+arrivals <- aa %>%
   group_by(arrHour) %>%
   summarize(Count = n())
 
 
 ggplot(aa, aes(x=arrHour)) + geom_bar(fill = '#F8766D') +
   labs(title = 'Number of Arrivals per Hour',subtitle = '8/1/24 - 8/7/24', x = 'Hour', y = 'Count') + theme_minimal()
+
 
 ggplot(aa[aa$international==1,], aes(x=arrHour)) + geom_bar(fill = '#F8766D') +
   labs(title = 'Number of International Arrivals per Hour',subtitle = '8/1/24 - 8/7/24', x = 'Hour', y = 'Count') + theme_minimal()
@@ -349,7 +349,6 @@ ggplot(aa[aa$international==1,], aes(x=arrHour)) + geom_bar(fill = '#F8766D') +
 The most common hours for both domestic and flights to arrive are around the middle of the day. However, domestic flights peak earlier than international flights starting to pick up at around 7am. This makes sense as to account for time difference, very few international flights (from American Airlines which are generally coming from Europe) land early in the morning in the US.
 
 ```{r}
-
 international_delay <- aa[aa$deptCountry != 'US',] %>% mutate(delayed = ifelse(grepl('^-', actualInGateVariation), 1, 0)) %>% select(CountryName, delayed) %>% group_by(CountryName) %>% summarise(del = sum(delayed)/n(), over = ifelse(del >= 0.5, 1, 0))
 international_delay$color <- ifelse(international_delay$over, '#00BA38',"#F8766D")
 
@@ -372,7 +371,6 @@ When looking at delays by country, there is no significant outliers for countrie
 
 ```{r}
 # Plot of delays by dow
-
 dow_delay$color <- ifelse(dow_delay$weekday == 'Mon', "green", ifelse(dow_delay$weekday == 'Wed', "blue", "red"))
 ggplot(dow_delay, aes(x = weekday, y = del, fill = color)) +
   geom_bar(stat = "identity") +
@@ -388,17 +386,25 @@ For all flights, we can see that Wednesday experiences the most delays and Monda
 
 #### Summary Statistics for Wait Times
 ```{r Summary Statistics}
+wait <- read.csv('waitTimes1.csv')
 summary(wait)
 
-per_date <- wait %>% group_by(Date) %>% summarise(Avg_US =  mean(US_Average_Wait_Time), Avg_NonUS = mean(Non_US_Average_Wait_Times)) %>% pivot_longer(cols = c(Avg_US, Avg_NonUS), names_to = 'Status')
-per_date$weekday <- wday(per_date$Date, label = TRUE)
+per_date <- wait %>% group_by(Date) %>% 
+  summarise(Avg_US =  mean(US_Average_Wait_Time), Avg_NonUS = mean(Non_US_Average_Wait_Times)) %>%
+  pivot_longer(cols = c(Avg_US, Avg_NonUS), names_to = 'Status')
+per_date$weekday <- wday(as.Date(per_date$Date), label=TRUE)
 
-per_date_max <- wait %>% group_by(Date) %>% summarise(Max_US =  max(US_Max_Wait_Time), Max_NonUS = max(Non_US_Max_Wait_Time)) %>% pivot_longer(cols = c(Max_US, Max_NonUS), names_to = 'Status')
-per_date_max$weekday <- wday(per_date$Date, label = TRUE)
+per_date_max <- wait %>% group_by(Date) %>% 
+  summarise(Max_US =  max(U.S..Citizen.Max_Wait_Time),
+            Max_NonUS = max(Non.U.S..Citizen.Max_Wait_Time)) %>%
+  pivot_longer(cols = c(Max_US, Max_NonUS), names_to = 'Status')
+per_date_max$weekday <- wday(as.Date(per_date_max$Date), label = TRUE)
 
 
-per_hour_wait <- wait[,c(5, 7, 23)]
-per_hour_wait <- per_hour_wait %>% group_by(arrStart) %>% summarise(Avg_US =  mean(US_Average_Wait_Time), Avg_NonUS = mean(Non_US_Average_Wait_Times)) %>% pivot_longer(cols = c(Avg_US, Avg_NonUS), names_to = 'Status')
+#per_hour_wait <- wait[,c(5, 7, 23)]
+# Merged dataframe
+result <- read.csv('AA_wait_merged.csv')
+per_hour_wait <- result %>% group_by(arrStart) %>% summarise(Avg_US =  mean(US_Average_Wait_Time), Avg_NonUS = mean(Non_US_Average_Wait_Times)) %>% pivot_longer(cols = c(Avg_US, Avg_NonUS), names_to = 'Status')
 
 stacked_hourly <- ggplot(per_hour_wait, aes(x = arrStart, y = value, fill = Status)) +
   geom_bar(stat = "identity") +
@@ -410,6 +416,7 @@ stacked_hourly <- ggplot(per_hour_wait, aes(x = arrStart, y = value, fill = Stat
   theme_minimal()
 stacked_hourly
 ```
+
 If we look at the average wait time per hour, there is not much difference between US and Non-US Citizens. However, you can see between 3-4am and 5-11pm it is significantly faster compared to the later hours between 11pm and 2am and the middle of the day between 5am and 4pm. This doesn't really make sense as our flight data indicated that all international flights are landing after 5pm so that would be when international arrivals is busiest.
 
 There are two explanations for why this data is not as expected.
@@ -449,6 +456,7 @@ However, if you are flying internationally, you want to make sure your flight la
 
 
 ## Data Manipulation
+
 #### Merging the Dataframes
 From our two APIs, we had a dataframe of wait times (by hour) and a week of American Airlines flights into Chicago O'Hare. To merge the two dataframes, we had to find the row within the wait times dataframe where the arrival time (of the AA flight) fit into the hour-long windows of the wait times dataframe.
 
@@ -458,7 +466,7 @@ We began by cleaning both the AA and wait dataframes.
   - Converting all times into total minutes for easy comparison.
   
 Here is the code for the merge. 
-```{r Merge DFs}
+```{r Merge DFs, eval = FALSE}
 result <- data.frame()
 for (i in 1:nrow(aa)) {
   df1 <- aa[i,]
@@ -490,7 +498,7 @@ This 'result' dataframe will be used for all analysis and modeling in the next s
 
 ## Regression Analysis & Results 
 #### Logistic Model
-Because delay is a binary classifier (1 - delay, 0 - no delay), we used a logistic regression model to predict whether a flight would be delayed. A logistic model is able to handle categorical predictors, and because it is a fairly simple model in design, is much more efficient than some other models. One limitations of using this model is that it assumes a linear relationship between our predictors and the log-odds of our outcome variable (delayed). 
+Because delay is a binary classifier (1 - delay, 0 - no delay), we used a logistic regression model to predict whether a flight would be delayed. A logistic model is able to handle categorical predictors, and because it is a fairly simple model in design, is much more efficient than some other models. One limitation of using this model is that it assumes a linear relationship between our predictors and the log-odds of our outcome variable (delayed). 
 Below is the code for this model. The predictors are: departure airport, departure time estimated variation, and day of week.
 ```{r Logistic Delay Model}
 no_na <- na.omit(result)
@@ -521,7 +529,7 @@ summary(wait_mod)
 crPlots(wait_mod)
 ```
 
-In our first wait model, we predict overall average wait time (for both US and Non-US citizens). Our model has an adjusted r-squared value of 0.4453, meaning that this model is not the greatest in terms of predicting overall wait time. Our model has two significant predictors: day of week and arrival time. 
+In our first wait model, we predict overall average wait time (for both US and Non-US citizens). Our model has an adjusted r-squared value of 0.4428, meaning that this model is not the greatest in terms of predicting overall wait time. Our model has two significant predictors: day of week and arrival time. 
 Arrival time (in minutes) is significant at the 0.001 level. It has a slight negative relationship with wait time: adding one minute to arrival time (later in the day) decreases the average wait time by 0.033 minutes.
 Because day of week is a categorical variable, we can analyze the significance of the different levels. Sunday, Monday, and Wednesday are significant at the highest level (0.001). All have a positive relationship with wait time. If the flight occurs on a Sunday, the wait time increases by -11 minutes. If the flight occurs on a Monday, the wait time increases by 5 minutes. Finally, if the flight occurs on a Wednesday, the wait time increases by 25 minutes.
   
@@ -536,7 +544,7 @@ summary(us_mod)
 crPlots(us_mod)
 ```
 
-For this US citizen model, we see an adjusted r-squared of 0.4692, meaning that our model is not the greatest predictor for US wait time. Once again, arrival time is significant at the 0.001 level, and it has a slight negative relationship with US citizen wait time. An increase in one minute in the arrival time decreases the wait time by 0.03 minutes. In terms of day of the week - Sunday, Tuesday, Wednesday, and Thursday are significant at the 0.001 level. Sunday, Tuesday, and Thursday have a negative relationship with wait time. On Sunday, the wait time decreases by 11 minutes; on Tuesday, the wait time decreases by 4 minutes; on Thursday, the wait time decreases by 6 minutes. Wednesday has a positive relationship with wait time, as it increases wait time by 20 minutes. 
+For this US citizen model, we see an adjusted r-squared of 0.4669, meaning that our model is not the greatest predictor for US wait time. Once again, arrival time is significant at the 0.001 level, and it has a slight negative relationship with US citizen wait time. An increase in one minute in the arrival time decreases the wait time by 0.03 minutes. In terms of day of the week - Sunday, Tuesday, Wednesday, and Thursday are significant at the 0.001 level. Sunday, Tuesday, and Thursday have a negative relationship with wait time. On Sunday, the wait time decreases by 11 minutes; on Tuesday, the wait time decreases by 4 minutes; on Thursday, the wait time decreases by 6 minutes. Wednesday has a positive relationship with wait time, as it increases wait time by 20 minutes. 
 
 ```{r Wait Model 3}
 non_us_data <- result %>%
@@ -547,8 +555,7 @@ summary(non_us_mod)
 crPlots(non_us_mod)
 ```
 
-In this model, our outcome variable is the average wait time for Non-US citizens. We see an adjusted r-squared of 0.504, meaning that our model is not the best at prediction. However, we see some significant variables. Like in our previous models, arrival time is significant at the 0.001 level, and it once again has a slight negative relationship with wait time. In terms of days of the week, only Monday and Wednesday are significant at the 0.001 level. Both had a positive relationship with wait time. Monday increases the wait time by 27 minutes, and Wednesday increases the wait time by 43 minutes.
-In all our linear models, in-gate variation was not a significant variable. Next steps would include running models with other variables instead of in-gate variation.
+In this model, our outcome variable is the average wait time for Non-US citizens. We see an adjusted r-squared of 0.4953, meaning that our model is not the best at prediction. However, we see some significant variables. Like in our previous models, arrival time is significant at the 0.001 level, and it once again has a slight negative relationship with wait time. In terms of days of the week, only Monday and Wednesday are significant at the 0.001 level. Both had a positive relationship with wait time. Monday increases the wait time by 27 minutes, and Wednesday increases the wait time by 43 minutes.
 
 All of our models provide actionable insights for travelers, which we will explain in the following section.
 
@@ -557,6 +564,7 @@ With our data analysis, we hoped to be able to predict delays and airport wait t
 
 In our binary model, we predicted whether a flight will be delayed using departure airport, departure gate estimated variation, and the day of the week. Our model had a 85% accuracy, meaning that this model would be useful to predict a flight's delay status.
 
+In the following code, we test our binary delay model on a flight. We chose a scheduled flight that was hours from taking off with the goal of predicting whether the flight would be delayed. Our predictors were the departure airport (London), the day of the week of the flight (Wednesday), and the estimated out gate variation (the flight was projected to leave 9 minutes before scheduled). Our model predicted that the flight would not be delayed (delayed = 0). After the flight landed, we checked it's status; we were correct in our prediction. 
 ```{r Prediction on Flight}
 test_data <- data.frame(deptAirport = c('LHR'), DayOfWeek = c('Wed'), outGateVarEst = c(-9))
 predicted_prob_test <- predict(delay_mod, type = "response", newdata = test_data)
@@ -586,7 +594,7 @@ Below is a summary of these outcomes for day of the week:
   - Monday: +27 minutes
   - Wednesday: +43 minutes
 
-Our main data limitations is the time period of the data. With our free API, we could only do a limited number of requests; using two accounts only allowed for a week's worth of data. To further validate our analyses, we would want to gather many more weeks of data and run our models again. Additionally, we would want to gather data on more than one airline and analysis waits/delays for these different airlines.
+Our main data limitations is the time period of the data. With our free API, we could only do a limited number of requests; using two accounts only allowed for a week's worth of data. To further validate our analyses, we would want to gather many more weeks of data and run our models again. Additionally, we would want to gather data on more than one airline and analysis waits/delays for these different airlines. Because our results include only one airline and arrival airport, we cannot generalize our results beyond these.
 
 ## References
 API Websites/Documentation:
