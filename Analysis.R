@@ -87,6 +87,8 @@ to_numeric <- function(time_str) {
   }
 }
 result$inGateVarMins <- sapply(result$actualInGateVariation, to_numeric)
+result$outGateVarMins <- sapply(result$actualOutGateVariation, to_numeric)
+result$outGateVarEst <- sapply(result$estimatedOutGateVariation, to_numeric)
 
 write.csv(result, "AA_wait_merged.csv", row.names = FALSE)
 
@@ -97,7 +99,6 @@ result$outGateVarEst <- sapply(result$estimatedOutGateVariation, to_numeric)
 result$deptEstTime <- str_extract(result$estimatedOutGate, "\\d{2}:\\d{2}")
 no_na <- na.omit(result)
 delay_mod <- glm(delayed ~ deptAirport + DayOfWeek + outGateVarEst, 
-  #delayed ~ deptAirport + outGateVarMins + DayOfWeek, 
              data = no_na, 
              family = binomial)
 
@@ -105,23 +106,24 @@ predicted_prob <- predict(delay_mod, type = "response")
 predicted_class <- ifelse(predicted_prob > 0.5, 1, 0)
 table(Actual = no_na$delayed, Predicted = predicted_class)
 confusionMatrix(as.factor(predicted_class), as.factor(no_na$delayed))
+crPlots(delay_mod)
 
 test_data <- data.frame(deptAirport = c('LHR'), DayOfWeek = c('Wed'), outGateVarEst = c(-9))
 predicted_prob_test <- predict(delay_mod, type = "response", newdata = test_data)
 predicted_class_test <- ifelse(predicted_prob_test > 0.5, 1, 0)
-predicted_class[1]
+predicted_class_test[1]
 
 
 
 # Linear Models to Predict Wait Times
-wait_mod <- lm(Wait.Times.Average_Wait_Time ~ DayOfWeek + arrMinutes + inGateVarMins,
+wait_mod <- lm(Wait.Times.Average_Wait_Time ~ DayOfWeek + arrMinutes + outGateVarMins,
                data = results)
 summary(wait_mod)
 crPlots(wait_mod)
 
 us_data <- result %>%
   filter(deptCountry == 'US')
-us_mod <- lm(US_Average_Wait_Time ~ DayOfWeek + arrMinutes + inGateVarMins,
+us_mod <- lm(US_Average_Wait_Time ~ DayOfWeek + arrMinutes + outGateVarMins,
              data = us_data)
 summary(us_mod)
 crPlots(us_mod)
