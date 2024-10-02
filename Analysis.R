@@ -3,6 +3,7 @@ library(lubridate)
 library(stringr)
 library(hms)
 library(caret)
+library(tidyr)
 
 ## American Airlines (ORD) Data
 ## Append CSVs
@@ -99,6 +100,41 @@ non_us_mod <- lm(Non_US_Average_Wait_Times ~ deptAirport + arrDay + arrMinutes +
              data = non_us_data)
 summary(non_us_mod)
 
+## Clustering to Compare Airports
+by_airport <- results %>%
+  group_by(deptAirport) %>%
+  summarize(percent_delay = sum(delayed)/n(),
+            avg_miles = mean(miles),
+            avg_us_wait = mean(US_Average_Wait_Time),
+            max_us_wait = max(US_Max_Wait_Time),
+            avg_non_us_wait = mean(Non_US_Average_Wait_Times),
+            max_non_us_wait = max(Non_US_Max_Wait_Time),
+            overall_avg_wait = mean(Wait.Times.Average_Wait_Time),
+            overall_max_wait = max(Wait.Times.Max_Wait_Time))
+scaled_data <- scale(by_airport[-1])
+set.seed(123456) 
+num_clusters <- 4
 
+fit_1 <- kmeans(scaled_data, centers = num_clusters, nstart = 25)
+by_airport$cluster <- as.factor(fit_1$cluster)
+
+clusters <- fit_1$cluster
+centers <- fit_1$centers
+cluster <- c(1: 4)
+center_df <- data.frame(cluster, centers)
+center_reshape <- gather(center_df, features, values, avg_miles:overall_max_wait)
+g_heat_1 <- ggplot(data = center_reshape, # Set dataset
+                   aes(x = features, y = cluster, fill = values)) + 
+  scale_y_continuous(breaks = seq(1, 4, by = 1)) + 
+  geom_tile() + coord_equal() +  
+  theme_set(theme_bw(base_size = 22) ) + 
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                       midpoint =0, 
+                       space = "Lab", 
+                       na.value ="grey",
+                       guide = "colourbar", 
+                       aesthetics = "fill") +
+  coord_flip()
+g_heat_1
 
 
