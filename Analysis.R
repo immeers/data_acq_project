@@ -92,14 +92,26 @@ write.csv(result, "AA_wait_merged.csv", row.names = FALSE)
 
 ##################
 # Logistic Regression to Predict Delay (based on airport, day, and time of day)
-delay_mod <- glm(delayed ~ deptAirport + arrMinutes + DayOfWeek, 
-             data = result, 
+result$outGateVarMins <- sapply(result$actualOutGateVariation, to_numeric)
+result$outGateVarEst <- sapply(result$estimatedOutGateVariation, to_numeric)
+result$deptEstTime <- str_extract(result$estimatedOutGate, "\\d{2}:\\d{2}")
+no_na <- na.omit(result)
+delay_mod <- glm(delayed ~ deptAirport + DayOfWeek + outGateVarEst, 
+  #delayed ~ deptAirport + outGateVarMins + DayOfWeek, 
+             data = no_na, 
              family = binomial)
 
 predicted_prob <- predict(delay_mod, type = "response")
 predicted_class <- ifelse(predicted_prob > 0.5, 1, 0)
-table(Actual = result$delayed, Predicted = predicted_class)
-confusionMatrix(as.factor(predicted_class), as.factor(result$delayed))
+table(Actual = no_na$delayed, Predicted = predicted_class)
+confusionMatrix(as.factor(predicted_class), as.factor(no_na$delayed))
+
+test_data <- data.frame(deptAirport = c('LHR'), DayOfWeek = c('Wed'), outGateVarEst = c(-9))
+predicted_prob_test <- predict(delay_mod, type = "response", newdata = test_data)
+predicted_class_test <- ifelse(predicted_prob_test > 0.5, 1, 0)
+predicted_class[1]
+
+
 
 # Linear Models to Predict Wait Times
 wait_mod <- lm(Wait.Times.Average_Wait_Time ~ DayOfWeek + arrMinutes + inGateVarMins,
@@ -109,14 +121,14 @@ crPlots(wait_mod)
 
 us_data <- result %>%
   filter(deptCountry == 'US')
-us_mod <- lm(US_Average_Wait_Time ~ arrDay + arrMinutes + delayed,
+us_mod <- lm(US_Average_Wait_Time ~ DayOfWeek + arrMinutes + inGateVarMins,
              data = us_data)
 summary(us_mod)
 crPlots(us_mod)
 
 non_us_data <- result %>%
   filter(deptCountry != 'US')
-non_us_mod <- lm(Non_US_Average_Wait_Times ~ arrDay + arrMinutes + delayed,
+non_us_mod <- lm(Non_US_Average_Wait_Times ~ DayOfWeek + arrMinutes + inGateVarMins,
              data = non_us_data)
 summary(non_us_mod)
 crPlots(non_us_mod)
